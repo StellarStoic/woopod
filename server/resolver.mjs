@@ -118,6 +118,8 @@ export function parseFeed(xml) {
     const channelTitle = tagText(channel, "title") || null;
     const channelImage = attribute(channel, "itunes:image", "href") || tagText(channel, "url") || null;
     const podcastGuid = tagText(channel, "podcast:guid") || null;
+    const channelDescription = tagText(channel, "description")
+        || tagText(channel, "summary") || tagText(channel, "subtitle") || null;
 
     const items = [];
     const pattern = /<(item|entry)\b[^>]*>([\s\S]*?)<\/\1>/gi;
@@ -140,9 +142,10 @@ export function parseFeed(xml) {
             summary: tagText(body, "description") || tagText(body, "summary") || tagText(body, "content"),
             image: attribute(body, "itunes:image", "href"),
             episodeNumber: tagText(body, "itunes:episode"),
+            date: tagText(body, "pubDate") || tagText(body, "published") || tagText(body, "updated"),
         });
     }
-    return { channelTitle, channelImage, podcastGuid, items };
+    return { channelTitle, channelImage, channelDescription, podcastGuid, items };
 }
 
 const plain = value => String(value ?? "")
@@ -159,6 +162,30 @@ export function queryUsable(searchParams) {
     const bytes = new TextEncoder().encode([...searchParams.entries()]
         .map(([key, value]) => `${key}=${value}`).join("&")).length;
     return bytes <= QUERY_MAX_BYTES;
+}
+
+/**
+ * The episode a locator names, or null.
+ *
+ * Kept separate from `resolveEpisode` so the API can tell "this feed cannot be read" (502) from "this
+ * feed does not contain that episode" (404): the difference is invisible to a share card, but not to a
+ * reader looking at the player.
+ */
+export function matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast } = {}) {
+    if (claimedPodcast && parsed.podcastGuid && claimedPodcast !== parsed.podcastGuid) return null;
+    const match = parsed.items.find(item => guid && item.guid === guid)
+        || parsed.items.find(item => atomId && item.atomId === atomId)
+        || parsed.items.find(item => enclosure && item.enclosure === enclosure);
+    if (!match) return null;
+    return {
+        title: plain(match.title) || null,
+        podcast: plain(parsed.channelTitle) || null,
+        artwork: match.image || parsed.channelImage || null,
+        audio: match.enclosure || null,
+        summary: match.summary ? plain(match.summary) : null,
+        episodeNumber: match.episodeNumber || null,
+        feed: finalUrl,
+    };
 }
 
 /**
@@ -200,20 +227,5 @@ export async function resolveEpisode(searchParams, { fetchImpl = safeFetch } = {
     } catch {
         return null;
     }
-    if (claimedPodcast && parsed.podcastGuid && claimedPodcast !== parsed.podcastGuid) return null;
-
-    const match = parsed.items.find(item => guid && item.guid === guid)
-        || parsed.items.find(item => atomId && item.atomId === atomId)
-        || parsed.items.find(item => enclosure && item.enclosure === enclosure);
-    if (!match) return null;
-
-    return {
-        title: plain(match.title) || null,
-        podcast: plain(parsed.channelTitle) || null,
-        artwork: match.image || parsed.channelImage || null,
-        audio: match.enclosure || null,
-        summary: match.summary ? plain(match.summary) : null,
-        episodeNumber: match.episodeNumber || null,
-        feed: finalUrl,
-    };
+    return matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast });
 }

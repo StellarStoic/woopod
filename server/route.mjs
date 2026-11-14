@@ -7,6 +7,7 @@
 // Not one byte of a stranger's query is logged: it carries a note someone wrote and their clip bounds.
 
 import { renderShareMetadata, shareMetadata } from "../player/share-metadata.mjs";
+import { handleApi } from "./api.mjs";
 import { resolveEpisode } from "./resolver.mjs";
 
 const CACHE_SECONDS = 300;
@@ -97,6 +98,8 @@ export async function handle(request, { getPage, env = {} } = {}) {
  */
 export async function onRequest(context) {
     const { request, env, next } = context;
+    const api = await handleApi(request);
+    if (api) return api;
     const answer = await handle(request, { getPage: () => next(), env });
     return answer || next();
 }
@@ -137,6 +140,8 @@ export function worker(env = {}) {
     return {
         async fetch(request) {
             const url = new URL(request.url);
+            const api = await handleApi(request);
+            if (api) return api;
             const kind = kindOf(url.pathname);
             if (!kind) return fetch(request);
             const pageUrl = new URL(`${kind === "clip" ? "c" : "p"}/index.html`, source).toString();
