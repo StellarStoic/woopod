@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101311">
+  <meta name="description" content="woopod is a quiet, independent Android podcast player with deep personalization, direct RSS, offline listening and user-owned identity.">
+  <meta property="og:title" content="woopod — more listening, less noise">
+  <meta property="og:description" content="A minimal, personal podcast player for Android. No ads. No tracking. No required Google services.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/app-icon-dark.png">
+  <title>woopod — more listening, less noise</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6ZM14 5h4v14h-4Z"/></symbol>
+    <symbol id="i-back15" viewBox="0 0 24 24"><path d="m11 2-6 4 6 4V7h2a7 7 0 1 1-7 7H4a9 9 0 1 0 9-9h-2Z"/></symbol>
+    <symbol id="i-forward30" viewBox="0 0 24 24"><path d="m13 2 6 4-6 4V7h-2a7 7 0 1 0 7 7h2a9 9 0 1 1-9-9h2Z"/></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24"><path d="M3 5h13v2H3Zm0 5h13v2H3Zm0 5h8v2H3Zm15-2h2v4h4v2h-4v4h-2v-4h-4v-2h4Z"/></symbol>
+    <symbol id="i-remove" viewBox="0 0 24 24"><path d="m6 6 1.4-1.4 4.6 4.6 4.6-4.6L18 6l-4.6 4.6 4.6 4.6-1.4 1.4L12 12l-4.6 4.6L6 15.2l4.6-4.6Z"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><path d="M4 7h16v2H4Zm0 4h16v2H4Zm0 4h16v2H4Z"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5-1.4 1.4-3.6-3.6-3.6 3.6Z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5-1.4-1.4-3.6 3.6-3.6-3.6Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7Zm-14 9v3h14v-3Z"/></symbol>
+    <symbol id="i-download-cancel" viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-download-done" viewBox="0 0 24 24"><path d="M5 18v3h14v-3Zm4-5.8L5.8 9l-1.4 1.4L9 15 20 4l-1.4-1.4Z"/></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 2 5l-1.4 1.4A9 9 0 1 0 13 3Z"/></symbol>
+    <symbol id="i-played" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7.5 12 3 3 6-7" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-bin" viewBox="0 0 24 24"><path d="m9 3-1 2H4v2h1l1 14h12l1-14h1V5h-4l-1-2Zm-1 4h8l-.8 12H8.8Zm2 2v8h2V9Zm3 0v8h2V9Z"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v19l-6-4-6 4Zm2 2v13.3l4-2.6 4 2.6V5Z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.7-3.4a3.4 3.4 0 0 0 .1-1l6.6-3.4a3 3 0 1 0-.9-1.8L8.1 11a3 3 0 1 0 0 3.8l6.6 3.4A3 3 0 1 0 18 16Z"/></symbol>
+    <symbol id="i-bitcoin" viewBox="0 0 24 24"><path d="m13.2 2-.5 2h-1.5l.5-2H10l-.5 2H6v2h1.6l-2.1 8H4v2h3.4l-.5 2h1.7l.5-2h1.5l-.5 2h1.7l.5-2c4.2-.2 6-5.1 2.8-6.6C17.2 6.6 15.4 4.2 12.7 4ZM9.7 6h2.5c2.1 0 1.9 3-.5 3H8.9Zm-1.3 5h3.4c2.5 0 2.2 3-.5 3H7.6Z"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><path d="M7 3a4 4 0 1 0 2.7 7L12 12l-2.3 2A4 4 0 1 0 11 17l10-9-1.5-1.5-6 4.5L11 8.8A4 4 0 0 0 7 3Zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm0 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm7.5-2L13 14.3l6.5 5.2L21 18Z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 4h16v13H8l-4 4Zm2 2v10.2L7.2 15H18V6Zm2 2h8v2H8Zm0 4h6v2H8Z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20Z"/></symbol>
+    <symbol id="i-top" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5-1.4 1.4-3.6-3.6-3.6 3.6ZM5 5h14v2H5Z"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6-1.4-1.4-4.6 4.6-4.6-4.6Z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M20 3H4L2 7v14h20V7Zm-.6 2 1 2H3.6l1-2ZM20 19H4V9h16Zm-11-8h6v2H9Z"/></symbol>
+    <symbol id="i-unarchive" viewBox="0 0 24 24"><path d="M20 3H4L2 7v14h20V7Zm-.6 2 1 2H3.6l1-2ZM20 19H4V9h16Zm-7 12-4 4h3v3h2v-3h3Z"/></symbol>
+    <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 3h16v18H4Zm2 3v2h12V6Zm0 5v2h12v-2Zm0 5v2h8v-2Z"/></symbol>
+    <symbol id="i-player" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4"/></symbol>
+    <symbol id="i-discover" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c.7-5 3.3-7 8-7s7.3 2 8 7" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-rss" viewBox="0 0 24 24"><circle cx="5" cy="19" r="2"/><path d="M3 11a10 10 0 0 1 10 10h3A13 13 0 0 0 3 8Zm0-6a16 16 0 0 1 16 16h3A19 19 0 0 0 3 2Z"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h5a4 4 0 0 0 4-4c0-3.3-4-6-9-6ZM7 8a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4-2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm5 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path d="M6 10V8a6 6 0 0 1 12 0v2h2v11H4V10Zm3 0h6V8a3 3 0 0 0-6 0Zm3 4a2 2 0 0 0-1 3.7V19h2v-1.3A2 2 0 0 0 12 14Z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M5 2h9l5 5v15H5Zm9 2v4h4M8 12h8v2H8Zm0 4h8v2H8Z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6l4 2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  </svg>
+
+  <header class="site-header" data-header>
+    <a class="brand" href="#top" aria-label="woopod home">
+      <img src="assets/woopod-mark.png" alt="" width="48" height="36">
+      <span>woopod</span>
+    </a>
+    <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-nav" data-menu>Menu</button>
+    <nav id="primary-nav" class="primary-nav" aria-label="Primary" data-nav>
+      <a href="#experience">Experience</a>
+      <a href="#documentation">Documentation</a>
+      <a href="#icons">Icons</a>
+      <a href="#roadmap">Roadmap</a>
+    </nav>
+    <a class="header-cta" href="#documentation">See what it does <span aria-hidden="true">↘</span></a>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-orb orb-one" data-depth="0.18"></div>
+      <div class="hero-orb orb-two" data-depth="-0.11"></div>
+      <p class="hero-ghost" aria-hidden="true" data-depth="0.08">LISTEN</p>
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="pulse-dot"></span> Independent Android preview</p>
+        <h1 id="hero-title">Less noise.<br><em>More listening.</em></h1>
+        <p class="hero-lead">A quiet podcast player shaped around your habits—not an algorithm’s. Direct feeds, deep personalization, offline listening and identity you own.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#experience">Enter woopod <span aria-hidden="true">↓</span></a>
+          <a class="button button-quiet" href="#documentation">Read the details</a>
+        </div>
+        <ul class="hero-facts" aria-label="Highlights">
+          <li>No ads</li><li>No tracking</li><li>No required Google services</li>
+        </ul>
+      </div>
+
+      <div class="hero-device-wrap" data-depth="0.06">
+        <div class="signal-card signal-card-one" data-depth="0.14"><span>theme</span><b>any color</b></div>
+        <div class="signal-card signal-card-two" data-depth="-0.08"><span>feeds</span><b>direct RSS</b></div>
+        <div class="device" aria-label="Illustration of the woopod Library screen">
+          <div class="device-speaker"></div>
+          <div class="device-screen">
+            <div class="mock-status"><span>09:41</span><span>◒ 87%</span></div>
+            <div class="mock-kicker">WOOPOD / YOUR LISTENING SPACE</div>
+            <blockquote>“Keep the world close. Keep the noise low.”</blockquote>
+            <div class="mock-search"><svg><use href="#i-discover"/></svg><span>Search in library</span></div>
+            <div class="mock-show active"><div class="mock-cover cover-a">W</div><div><b>Signals &amp; Stories</b><small>42 episodes</small></div><span>→</span></div>
+            <div class="mock-show"><div class="mock-cover cover-b">F</div><div><b>Future Commons</b><small>118 episodes</small></div><span>→</span></div>
+            <div class="mock-show"><div class="mock-cover cover-c">N</div><div><b>Night Frequency</b><small>27 episodes</small></div><span>→</span></div>
+            <div class="mock-mini"><span><b>Listening now</b><small>Space for another voice</small></span><svg><use href="#i-pause"/></svg></div>
+            <div class="mock-nav">
+              <span class="selected"><svg><use href="#i-library"/></svg>Library</span>
+              <span><svg><use href="#i-player"/></svg>Player</span>
+              <span><svg><use href="#i-drag"/></svg>Playlist</span>
+              <span><svg><use href="#i-discover"/></svg>Discover</span>
+              <span><svg><use href="#i-user"/></svg>You</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#principles"><span>Scroll to tune in</span><i></i></a>
+    </section>
+
+    <section class="marquee" aria-label="woopod principles">
+      <div>YOUR COLOR <span>✦</span> YOUR TYPE <span>✦</span> YOUR FEEDS <span>✦</span> YOUR KEY <span>✦</span> YOUR TIME <span>✦</span> YOUR COLOR <span>✦</span> YOUR TYPE <span>✦</span> YOUR FEEDS <span>✦</span> YOUR KEY <span>✦</span> YOUR TIME <span>✦</span></div>
+    </section>
+
+    <section class="section principles" id="principles">
+      <div class="section-intro reveal">
+        <p class="eyebrow">01 / The idea</p>
+        <h2>Personal without<br><em>being invasive.</em></h2>
+      </div>
+      <div class="principle-grid">
+        <article class="principle reveal"><span>01</span><h3>Quiet by default</h3><p>Five clear rooms. Contextual controls. No dashboard of distractions between you and the next episode.</p></article>
+        <article class="principle reveal"><span>02</span><h3>Independent at runtime</h3><p>RSS, local storage and Android system services. No required Play Services, Firebase, advertising or tracking SDK.</p></article>
+        <article class="principle reveal"><span>03</span><h3>Yours to shape</h3><p>Choose any accent color, switch light or dark, pick from 15 distinct typefaces, or import your own font.</p></article>
+        <article class="principle reveal"><span>04</span><h3>Identity you hold</h3><p>Create a local key or connect an Android signer. Your public profile can travel; listening data stays local unless you choose otherwise.</p></article>
+      </div>
+    </section>
+
+    <section class="theme-lab section" aria-labelledby="theme-title">
+      <div class="theme-copy reveal">
+        <p class="eyebrow">Make it yours</p>
+        <h2 id="theme-title">One color.<br><em>Infinite moods.</em></h2>
+        <p>The interface derives its emphasis from one chosen hue. Try it here—the page and the miniature player respond together.</p>
+        <label class="color-control"><span>Theme color</span><input type="color" value="#7ce2c0" data-color aria-label="Choose demo theme color"><output data-color-value>#7CE2C0</output></label>
+        <button class="text-button" type="button" data-font>Change the type mood <span aria-hidden="true">Aa</span></button>
+      </div>
+      <div class="theme-stage reveal" data-depth="0.035">
+        <div class="vinyl" aria-hidden="true"><i></i></div>
+        <div class="mini-player">
+          <div class="mini-art"><img src="assets/woopod-mark.png" alt=""></div>
+          <p class="mini-label">NOW PLAYING</p>
+          <h3>Room for another voice</h3>
+          <p>Woopod Radio · Episode 12</p>
+          <div class="timeline"><i></i></div>
+          <div class="time"><span>18:42</span><span>42:07</span></div>
+          <div class="player-buttons"><button aria-label="Skip back 15 seconds"><svg><use href="#i-back15"/></svg><small>15</small></button><button class="main-play" aria-label="Pause"><svg><use href="#i-pause"/></svg></button><button aria-label="Skip forward 30 seconds"><svg><use href="#i-forward30"/></svg><small>30</small></button></div>
+          <div class="speed">Playback speed <b>1.25×</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section experience" id="experience" aria-labelledby="experience-title">
+      <div class="section-intro reveal">
+        <p class="eyebrow">02 / Five rooms</p>
+        <h2 id="experience-title">Everything has<br><em>its place.</em></h2>
+        <p>Swipe left or right across the screen, or use the labeled navigation. Each room keeps its own position while playback continues.</p>
+      </div>
+      <div class="rooms">
+        <article class="room reveal"><div class="room-no">01</div><svg><use href="#i-library"/></svg><div><h3>Library</h3><p>Subscriptions, episode search, archives, custom artwork and per-show settings.</p></div></article>
+        <article class="room reveal"><div class="room-no">02</div><svg><use href="#i-player"/></svg><div><h3>Player</h3><p>Artwork, progress, resume, skip controls and speed without unrelated clutter.</p></div></article>
+        <article class="room reveal"><div class="room-no">03</div><svg><use href="#i-drag"/></svg><div><h3>Playlist</h3><p>A full-width listening order. Hold the handle for 1.5 seconds, then rearrange; quick movement remains scrolling.</p></div></article>
+        <article class="room reveal"><div class="room-no">04</div><svg><use href="#i-discover"/></svg><div><h3>Discover</h3><p>Podcasts and episodes across directories, regions and publisher archives.</p></div></article>
+        <article class="room reveal"><div class="room-no">05</div><svg><use href="#i-user"/></svg><div><h3>You</h3><p>Profile, appearance, downloads, transfer tools and the settings that stay out of your way.</p></div></article>
+      </div>
+    </section>
+
+    <section class="section documentation" id="documentation" aria-labelledby="docs-title">
+      <div class="docs-heading reveal">
+        <div><p class="eyebrow">03 / Documentation</p><h2 id="docs-title">What woopod<br><em>can do.</em></h2></div>
+        <div class="status-key" aria-label="Feature status legend"><span><i class="available"></i>Available now</span><span><i class="partial"></i>Partial</span><span><i class="planned"></i>Roadmap</span></div>
+      </div>
+      <div class="docs-tools reveal">
+        <label class="docs-search"><svg><use href="#i-discover"/></svg><span class="sr-only">Search documentation</span><input type="search" placeholder="Search features: chapters, OPML, offline…" data-doc-search></label>
+        <p><span data-doc-count>50</span> documented capabilities</p>
+      </div>
+
+      <div class="docs-list" data-doc-list>
+        <details class="doc-group reveal" open data-search="library subscriptions rss atom feeds archive artwork podcast settings quotes">
+          <summary><span>Library &amp; subscriptions</span><small>7 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="direct rss atom subscribe feeds url apple link"><div class="doc-status available">Available</div><h3>Direct RSS &amp; Atom subscriptions</h3><p>Paste a secure feed URL or supported Apple Podcasts link, preview every playable episode, then subscribe. The publisher feed remains the source of truth.</p></article>
+            <article class="doc-item" data-search="episode lists refresh pull down new numbers dates filter search library"><div class="doc-status available">Available</div><h3>Complete, refreshable episode lists</h3><p>Pull down from the top of Library to check every active and archived subscription with live progress. New entries merge without discarding older episodes omitted by shortened feeds. Episode numbers appear before titles, and search narrows shows or episodes locally.</p></article>
+            <article class="doc-item" data-search="archive archived subscription restore"><div class="doc-status available">Available</div><h3>Archive without unsubscribing</h3><p>Move a quiet subscription out of the everyday Library while preserving its catalog, progress, artwork, offline files, queue entries and OPML export. Restore it at any time.</p></article>
+            <article class="doc-item" data-search="artwork poster custom cover local cache"><div class="doc-status available">Available</div><h3>Artwork that arrives quickly</h3><p>List thumbnails, preview art and Player art use separate sizes and app-private caching. Import a local image to override a show’s cover; restore the publisher image later.</p></article>
+            <article class="doc-item" data-search="podcast settings speed offline artwork three dots"><div class="doc-status available">Available</div><h3>Per-podcast settings</h3><p>The cover-side menu contains artwork override, default playback speed, automatic offline retention and archive/restore. More show-level settings can be added without crowding the episode list.</p></article>
+            <article class="doc-item" data-search="quotes inspiration another quote"><div class="doc-status available">Available</div><h3>Listening prompts</h3><p>Short original lines rotate while the Library overview is visible. Choose Another quote from the Library menu. No quote service or network request is involved.</p></article>
+            <article class="doc-item" data-search="delete subscriptions danger backup"><div class="doc-status available">Available</div><h3>Intentional deletion</h3><p>The red Danger zone asks twice, recommends an OPML backup and clearly separates subscription deletion from queue, progress, appearance and identity.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" open data-search="player playback background resume speed chapters queue playlist controls">
+          <summary><span>Listening &amp; playback</span><small>11 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="stream playback background resume progress mini player title scroll speed"><div class="doc-status available">Available</div><h3>Background playback &amp; resume</h3><p>Media3 keeps audio playing outside the app. Position checkpoints restore listening after restart, and the mini-player returns you to the full Player. Its long episode title shares Playlist’s title scroll speed setting; 0 stops movement in both.</p></article>
+            <article class="doc-item" data-search="skip back forward 15 30 seek progress"><div class="doc-status available">Available</div><h3>Precise controls</h3><p>Play/pause, seek, 15-second rewind and 30-second forward use large theme-colored targets. Buffering, retry and playback errors stay visible.</p></article>
+            <article class="doc-item" data-search="playback speed podcast default 0.5 2.5 menu"><div class="doc-status available">Available</div><h3>Speed, globally or per show</h3><p>Adjust from 0.5× to 2.5× in Player’s top-right menu. A podcast can retain its own default and apply it as episodes change.</p></article>
+            <article class="doc-item" data-search="playlist queue drag reorder remove order hold favourite compact modal title scroll speed"><div class="doc-status available">Available</div><h3>Standalone Playlist</h3><p>Equal-height cards reserve two title lines. Long titles scroll left on the second line; Settings controls speed from 0 (off) to 100. Tap a card to play; hold for Move to top/bottom, Favourite, Played and Remove. Hold an action or episode handle for 1.5 seconds to reorder.</p></article>
+            <article class="doc-item" data-search="played listened history library archive player playlist discover"><div class="doc-status available">Available</div><h3>Played history that stays useful</h3><p>Mark episodes manually or let completion do it. Library and Archived mark individual episodes without adding noise to podcast cards; Discover can identify previously heard shows. Durable local history survives unsubscribe and can be reversed without changing progress.</p></article>
+            <article class="doc-item" data-search="player one screen fit poster timeline actions no scroll compact"><div class="doc-status available">Available</div><h3>A Player that fits</h3><p>The poster adapts to available height so the episode title, timeline, transport buttons and action rail remain together on one non-scrolling screen.</p></article>
+            <article class="doc-item" data-search="bookmark timestamp note thought seek local"><div class="doc-status available">Available</div><h3>Timestamped bookmark notes</h3><p>Save a private thought at the current playback time, reopen notes in chronological order and tap one to seek back. Notes remain in an independent local database.</p></article>
+            <article class="doc-item" data-search="clip scissors share copy link start end time public comment identity WID"><div class="doc-status partial">Partial</div><h3>Create a clip link</h3><p>In Player, tap Scissors. Drag the timeline’s start/end handles, select Start or End, then slide the ruler for fine adjustment. Enter exact times reveals optional seconds or mm:ss input with millisecond precision; Use current position applies to the selected endpoint. Choose any valid portion of the episode—there is no clip-length cap. Woopod reads the actual episode length first; the timeline, fine ruler and typed times stop at that end. Exact times display as mm:ss or hh:mm:ss, and length reads in hours/minutes/seconds. Listen with restart/play-pause or check the final five seconds. A thin green playhead follows the audio on the slider in both the editor and preview, remaining at its position when paused. Create clip opens an editable local preview; Share and Copy share link are available there once sharing details are ready. Comments allow up to 280 Unicode characters and 1,024 UTF-8 bytes. The link includes the feed address and public comment, so use public podcasts only. Older episodes automatically recover their feed from saved details or podcast directories and cache it for next time. If recovery fails, the visible header offers feed entry while local preview still works. Browser playback depends on the companion deployment; creating a link does not post a message or upload audio.</p></article>
+            <article class="doc-item" data-search="share bitcoin podcasting 2 value recipient clip scissors encrypted episode chat relay"><div class="doc-status partial">Partial</div><h3>Player action rail</h3><p>Podcasting 2.0 value recipients produce a conditional Bitcoin action. Generic funding links do not masquerade as Bitcoin support. The comment icon opens publisher discussions: read public Mastodon-compatible threads inside Woopod or open the publisher’s service to reply. Share opens Android’s share sheet for the full publisher audio link. Scissors creates unlimited-length timed clips with native listening and an editable preview before sharing. Browser clip playback still depends on the companion deployment; public Woopod chat remains planned.</p></article>
+            <article class="doc-item" data-search="episode description notes chapters timestamp show notes"><div class="doc-status available">Available</div><h3>Descriptions &amp; chapters</h3><p>Tap a title for show notes. Timestamped notes and inline feed chapters become individual rows; tapping a time loads the episode and seeks to that point with feedback.</p></article>
+            <article class="doc-item" data-search="external chapters transcript bookmarks notes"><div class="doc-status partial">Partial</div><h3>Richer listening context</h3><p>Inline chapters, descriptions and timestamped private notes work now. External chapter files, embedded media chapters and transcripts remain to be added.</p></article>
+            <article class="doc-item" data-search="sleep timer schedule"><div class="doc-status planned">Roadmap</div><h3>Sleep timer</h3><p>A timer and recurring listening schedule are part of the product scope, but are not in the current preview.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" open data-search="audio silence chime boost mono equalizer bass surround stereo headphones">
+          <summary><span>Audio tuning</span><small>7 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="silence skip quiet gaps"><div class="doc-status available">Available</div><h3>Skip silence</h3><p>You → Audio can shorten quiet gaps while preserving your chosen speech speed. It works with streamed and downloaded episodes; all audio effects default off.</p></article>
+            <article class="doc-item" data-search="transition sound chime between episodes"><div class="doc-status available">Available</div><h3>Sound between episodes</h3><p>An optional short chime marks automatic advancement to a different queued episode, with a brief pause before the next episode resumes. Manual selection and replay do not chime.</p></article>
+            <article class="doc-item" data-search="volume boost gain quiet limiter"><div class="doc-status available">Available</div><h3>Volume boost</h3><p>Raise quiet recordings by 0–12 dB. Peak limiting protects against digital clipping; strong boost can reduce dynamics. Automatic loudness leveling remains future work.</p></article>
+            <article class="doc-item" data-search="mono channels one ear"><div class="doc-status available">Available</div><h3>Mono audio</h3><p>Combine all channels so either ear receives the full conversation. Mono takes precedence over surround and disables its slider while enabled.</p></article>
+            <article class="doc-item" data-search="equalizer eq frequency five bands flat preset rock pop jazz speech warm voice classical acoustic electronic dance hip-hop metal bass treble loudness late night"><div class="doc-status available">Available</div><h3>Five-band equalizer &amp; presets</h3><p>Choose from 20 saved curves: Flat, Speech, Warm Voice, Vocal Clarity, Rock, Pop, Jazz, Classical, Acoustic, Electronic, Dance, Hip-Hop, R&amp;B, Metal, Bass Boost, Treble Boost, Bass Cut, Treble Cut, Loudness and Late Night. Adjusting a band marks the curve Custom. The five sliders span −12 to +12 dB; presets keep your other audio controls unchanged.</p></article>
+            <article class="doc-item" data-search="bass low frequencies shelf"><div class="doc-status available">Available</div><h3>Bass</h3><p>A separate 0–12 dB bass control works with the equalizer on or off. Headroom compensation keeps tonal changes from blindly increasing already loud peaks.</p></article>
+            <article class="doc-item" data-search="surround stereo width headphones reset"><div class="doc-status available">Available</div><h3>Surround / stereo width</h3><p>Widen stereo sound from 0–100%, best heard through headphones. Centred voices stay centred; mono recordings cannot gain missing stereo detail. Reset audio returns all these controls to their original defaults.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" open data-search="discover search podcasts episodes regions directories gpodder fyyd apple">
+          <summary><span>Discovery</span><small>5 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="search podcast episode people topic"><div class="doc-status available">Available</div><h3>Podcast and episode search</h3><p>One field accepts podcast names, episode titles, people, topics or a feed link. Whole-word matching prevents short searches such as “AI” from matching unrelated letter sequences.</p></article>
+            <article class="doc-item" data-search="global regions gpodder fyyd apple storefront"><div class="doc-status available">Available</div><h3>Multiple independent sources</h3><p>Results combine gPodder, fyyd and Apple across multiple storefronts. Sources finish independently, so one failure does not erase useful matches from the others.</p></article>
+            <article class="doc-item" data-search="dig deeper region archive publisher rss history"><div class="doc-status available">Available</div><h3>Dig deeper</h3><p>Continue into more regions, additional directory pages and up to five publisher RSS archives per pass. Existing results remain while coverage grows.</p></article>
+            <article class="doc-item" data-search="exclude subscriptions include existing new horizons"><div class="doc-status available">Available</div><h3>New horizons by default</h3><p>Saved subscriptions stay out of Discover unless Include subscriptions is enabled from the three-dot menu. Search your existing collection in Library.</p></article>
+            <article class="doc-item" data-search="categories suggestions author person discovery"><div class="doc-status planned">Roadmap</div><h3>Curated paths</h3><p>Categories, suggestions and verified author/person discovery are planned. Current discovery is keyword and feed-link based.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" data-search="offline download wifi cellular schedule bin cleanup retention">
+          <summary><span>Offline &amp; cleanup</span><small>5 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="manual download offline play"><div class="doc-status available">Available</div><h3>Download any episode</h3><p>Save audio for local playback. Ready files transparently replace the network source; partial, failed and binned files never masquerade as playable downloads.</p></article>
+            <article class="doc-item" data-search="automatic latest episodes retention keep newest"><div class="doc-status available">Available</div><h3>Keep the latest N</h3><p>Set 1–100 newest episodes per podcast, or zero to disable. Replacements must finish before older files move to the Bin, and the current Player item is protected.</p></article>
+            <article class="doc-item" data-search="wifi cellular roaming network"><div class="doc-status available">Available</div><h3>Network rules</h3><p>Wi-Fi-only is the default. Cellular can be allowed deliberately; roaming downloads remain disabled.</p></article>
+            <article class="doc-item" data-search="interval daily manual schedule check now"><div class="doc-status available">Available</div><h3>Flexible checks</h3><p>Choose manual, 1/3/6/12/24-hour intervals, or a daily local time. Android may delay background work for battery or network conditions.</p></article>
+            <article class="doc-item" data-search="bin recycle delete restore expiry cleanup playlist 15 minutes"><div class="doc-status available">Available</div><h3>A recoverable Playlist Bin</h3><p>Playlist’s three-dot menu opens locally stored finished episodes. Restore returns audio and its card to Playlist. A shared slider in Settings and Bin keeps files for 15 min, 30 min, 1 h, 6 h, 12 h, 1 d, 3 d or 7 d.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" data-search="appearance theme color font typography dark poster custom">
+          <summary><span>Appearance &amp; accessibility</span><small>5 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="theme color chooser hex dark contrast"><div class="doc-status available">Available</div><h3>Any accent color</h3><p>Choose hue, saturation, brightness or an exact hex value. Woopod derives readable surfaces and selection states for light and dark appearances.</p></article>
+            <article class="doc-item" data-search="font typography 15 import ttf otf custom"><div class="doc-status available">Available</div><h3>Typography with personality</h3><p>Fifteen genuinely different bundled families work offline. Import a TTF or OTF up to 10 MB, preview it in the interface and remove it later.</p></article>
+            <article class="doc-item" data-search="poster cover toggle search playlist"><div class="doc-status available">Available</div><h3>Poster visibility</h3><p>Hide or show podcast artwork in search and Playlist when you want an even quieter interface.</p></article>
+            <article class="doc-item" data-search="bottom menu navigation order customize swipe hold drag"><div class="doc-status available">Available</div><h3>Your navigation order</h3><p>Hold any bottom destination for 1.5 seconds and drag left or right. Labels, taps, internal jumps and horizontal swipes share your saved order.</p></article>
+            <article class="doc-item" data-search="accessibility talkback large touch back to top"><div class="doc-status available">Available</div><h3>Named actions, generous targets</h3><p>Controls carry accessibility labels, key actions use 48 dp targets, drag reordering has TalkBack alternatives, and long screens reveal a translucent back-to-top action.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" data-search="user identity nostr amber account profile relay secret key nsec">
+          <summary><span>User &amp; identity</span><small>5 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="create account username avatar key local"><div class="doc-status available">Available</div><h3>Create an identity on-device</h3><p>Choose a display name, receive a random DiceBear Stack avatar, and generate a fresh secp256k1 key locally. The default profile description is “#woopod clan.”</p></article>
+            <article class="doc-item" data-search="secret key backup nsec bitwarden copy recover"><div class="doc-status available">Available</div><h3>Explicit secret backup</h3><p>The nsec stays hidden and red until requested. A secure dialog explains that there is no password reset, supports user-triggered copying and recommends a password manager.</p></article>
+            <article class="doc-item" data-search="amber android signer nip55 connect"><div class="doc-status available">Available</div><h3>Connect an Android signer</h3><p>Amber/NIP-55 connection keeps the signing key in the signer app. Woopod can display the public identity without silently requesting event-signing permission.</p></article>
+            <article class="doc-item" data-search="profile relay purple pages woopod nostr kind 0"><div class="doc-status available">Available</div><h3>Portable public profile</h3><p>Verified kind-0 profiles are read from Woopod and purplepag.es. Local accounts can publish independently and retain per-relay acknowledgements.</p></article>
+            <article class="doc-item" data-search="comments discussion socialInteract activitypub mastodon podcasting namespace"><div class="doc-status partial">Partial</div><h3>Publisher comments</h3><p>Tap the chat icon in Player or Episode comments in an episode’s details. Feed-provided discussion links choose the publisher’s official conversation. Woopod reads public Mastodon-compatible posts and replies with loading, retry, refresh and back-to-top controls. Content warnings hide the post text until revealed. Replies open on the original service using your account there. Other services use external links; feeds without discussion metadata explain that no thread is available. Publisher-disabled comments are respected. This is separate from the planned public, unencrypted Woopod chat.</p></article>
+            <article class="doc-item" data-search="qr private key comments reviews completion post social"><div class="doc-status planned">Roadmap</div><h3>More identity-powered actions</h3><p>Remote QR sign-in, private-key import, native comment posting, reviews and per-show completion posts remain planned. Listening is not published automatically.</p></article>
+          </div>
+        </details>
+
+        <details class="doc-group reveal" data-search="opml backup restore data storage privacy">
+          <summary><span>Transfer, data &amp; independence</span><small>5 capabilities</small></summary>
+          <div class="doc-items">
+            <article class="doc-item" data-search="opml import export subscriptions"><div class="doc-status available">Available</div><h3>OPML in and out</h3><p>Import nested subscription files or export a standard OPML 2.0 document through Android’s picker. Duplicates are skipped; large imports checkpoint progress and can resume.</p></article>
+            <article class="doc-item" data-search="full backup cloud restore encrypted"><div class="doc-status planned">Roadmap</div><h3>Full backup &amp; cloud backup</h3><p>OPML moves subscriptions only. Progress, queue, settings, notes and local achievements need a separate encrypted full-backup format and independent provider strategy.</p></article>
+            <article class="doc-item" data-search="sqlite large library import stable storage"><div class="doc-status available">Available</div><h3>Large-library storage</h3><p>Podcast and episode records live in incremental SQLite storage rather than one giant preference value. Migration is transactional and metadata edits do not rewrite episode catalogs.</p></article>
+            <article class="doc-item" data-search="google independent tracking ads firebase play services"><div class="doc-status available">Available</div><h3>No required Google runtime</h3><p>The app includes no Google identity, Firebase, ad or tracking SDK. AndroidX, Media3, system DownloadManager and WorkManager do not require a Google account to run.</p></article>
+            <article class="doc-item" data-search="clips companion website comments radio badges statistics widgets alarms"><div class="doc-status planned">Roadmap</div><h3>Expanded ecosystem</h3><p>Android creates clip links now. Their bounded browser player, listening statistics, badges, widgets, radio, alarms and advanced social discovery remain future work.</p></article>
+          </div>
+        </details>
+      </div>
+      <p class="no-results" hidden data-no-results>No documented capability matches that search.</p>
+    </section>
+
+    <section class="section icon-language" id="icons" aria-labelledby="icons-title">
+      <div class="section-intro reveal"><p class="eyebrow">04 / Icon language</p><h2 id="icons-title">Small symbols.<br><em>Clear actions.</em></h2><p>Every active interface icon is named below. Color communicates state: the chosen theme color means active or available; soft gray means not yet selected.</p></div>
+      <div class="icon-grid">
+        <article class="icon-card reveal"><i><svg><use href="#i-play"/></svg></i><div><h3>Play</h3><p>Start an episode or select it from Playlist.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-pause"/></svg></i><div><h3>Pause</h3><p>Pause the current audio without losing position.</p></div></article>
+        <article class="icon-card reveal"><i class="timed"><svg><use href="#i-back15"/></svg><small>15</small></i><div><h3>Back 15</h3><p>Rewind the active episode by fifteen seconds.</p></div></article>
+        <article class="icon-card reveal"><i class="timed"><svg><use href="#i-forward30"/></svg><small>30</small></i><div><h3>Forward 30</h3><p>Advance the active episode by thirty seconds.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-queue"/></svg></i><div><h3>Add to Playlist</h3><p>Gray at 50% when absent; theme-colored when the episode is queued. Tap again to remove.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-drag"/></svg></i><div><h3>Drag handle</h3><p>Small gray handles at 50% opacity keep Playlist quiet. Hold for 1.5 seconds to reorder episodes or action rows. The action menu is one panel dismissed by tapping outside.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-up"/></svg></i><div><h3>Move to top</h3><p>In the Playlist card’s long-press menu, move this episode to the first queue position.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-down"/></svg></i><div><h3>Move to bottom</h3><p>In the Playlist card’s long-press menu, move this episode to the final queue position.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-remove"/></svg></i><div><h3>Remove</h3><p>Long-press a Playlist card and choose Remove from playlist to remove that queue entry.</p></div></article>
+        <article class="icon-card reveal"><i>★</i><div><h3>Favourite</h3><p>A compact status indicator for a saved favourite. Toggle it from the Playlist card’s long-press menu.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-download"/></svg></i><div><h3>Download</h3><p>Save an episode for offline listening.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-download-cancel"/></svg></i><div><h3>Cancel download</h3><p>Stop a queued or active transfer.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-download-done"/></svg></i><div><h3>Ready offline</h3><p>The audio is stored locally. Tap to move the file to the Bin.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-restore"/></svg></i><div><h3>Restore download</h3><p>Return an episode from the Bin to offline playback.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-played"/></svg></i><div><h3>Played / unplayed</h3><p>Theme-colored means played; soft gray means unplayed. Tap to reverse the state.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-bin"/></svg></i><div><h3>Bin</h3><p>Open finished local audio, restore it to Playlist or confirm permanent deletion.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-bookmark"/></svg></i><div><h3>Bookmark note</h3><p>Save a private thought at the current episode time or reopen an earlier note.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-share"/></svg></i><div><h3>Share</h3><p>Open Android’s share sheet for the current episode’s full publisher audio link, title and podcast name.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-bitcoin"/></svg></i><div><h3>Bitcoin / value</h3><p>Appears only when a feed supplies Podcasting 2.0 funding or value destinations.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-scissors"/></svg></i><div><h3>Create clip</h3><p>Choose start/end without a length cap, listen to the boundaries, and create an editable local preview before sharing. Browser playback depends on the companion deployment.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-chat"/></svg></i><div><h3>Episode comments</h3><p>Read the publisher’s public discussion or open its service to reply. Available in Player and Episode details. A separate public, unencrypted Woopod chat is planned; messages will be signed by their authors.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-more"/></svg></i><div><h3>More</h3><p>Open contextual Library, Playlist, Discover or podcast settings.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-back"/></svg></i><div><h3>Back to Library</h3><p>Leave a podcast’s episode view for its parent collection.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-top"/></svg></i><div><h3>Back to top</h3><p>Appears after scrolling; smoothly returns a long view to its beginning.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-expand"/></svg></i><div><h3>Expand section</h3><p>Reveal or collapse a populated group in You.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-archive"/></svg></i><div><h3>Archive show</h3><p>Hide a subscription from everyday Library without deleting it.</p></div></article>
+        <article class="icon-card reveal"><i><svg><use href="#i-unarchive"/></svg></i><div><h3>Restore show</h3><p>Move an archived subscription back into Library.</p></div></article>
+      </div>
+      <div class="navigation-icons reveal" aria-labelledby="nav-icons-title">
+        <h3 id="nav-icons-title">Main navigation</h3>
+        <div><span><svg><use href="#i-library"/></svg><b>Library</b></span><span><svg><use href="#i-player"/></svg><b>Player</b></span><span><svg><use href="#i-drag"/></svg><b>Playlist</b></span><span><svg><use href="#i-discover"/></svg><b>Discover</b></span><span><svg><use href="#i-user"/></svg><b>You</b></span></div>
+      </div>
+    </section>
+
+    <section class="independence" aria-labelledby="independence-title">
+      <div class="independence-mark" data-depth="0.06"><img src="assets/woopod-mark.png" alt=""></div>
+      <div class="independence-copy reveal"><p class="eyebrow">05 / Independence</p><h2 id="independence-title">Your phone.<br>Your feeds.<br><em>Your choice.</em></h2><p>Woopod is designed to work without an account gate, ad network or required Google runtime. Public profile actions are separate from local listening. Nothing is published merely because you pressed play.</p><ul><li><svg><use href="#i-rss"/></svg><span><b>Direct publisher feeds</b>RSS and Atom stay usable without a directory.</span></li><li><svg><use href="#i-lock"/></svg><span><b>Private by default</b>Progress, queue, settings and downloads remain local.</span></li><li><svg><use href="#i-file"/></svg><span><b>Portable subscriptions</b>Standard OPML import and export through your chosen storage.</span></li></ul></div>
+    </section>
+
+    <section class="section roadmap" id="roadmap" aria-labelledby="roadmap-title">
+      <div class="section-intro reveal"><p class="eyebrow">06 / What comes next</p><h2 id="roadmap-title">A clear path,<br><em>not a promise cloud.</em></h2><p>Planned work is shown as planned. Priorities can change as the app is tested in real listening.</p></div>
+      <ol class="roadmap-list">
+        <li class="reveal"><span>Now</span><div><h3>Polish the listening core</h3><p>Accessibility, large libraries, playback reliability, Playlist gestures and full device verification.</p></div></li>
+        <li class="reveal"><span>Next</span><div><h3>Social, only with consent</h3><p>Native comment posting, per-show completion-post controls, remote signing and transparent relay status.</p></div></li>
+        <li class="reveal"><span>Then</span><div><h3>Listening intelligence</h3><p>Transcripts, sleep controls, loudness leveling, per-podcast audio overrides, statistics, badges and organization.</p></div></li>
+        <li class="reveal"><span>Next</span><div><h3>Complete the browser clip player</h3><p>Android can select and share clip times and a public comment. The companion website resolver and bounded player are the next integration.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="closing" aria-labelledby="closing-title">
+      <p class="closing-ghost" aria-hidden="true">WOOPOD</p>
+      <div class="closing-content reveal"><img src="assets/woopod-mark.png" alt="" width="180"><p class="eyebrow">Built for attention, not extraction</p><h2 id="closing-title">Leave room<br><em>for a voice.</em></h2><a class="button button-primary" href="#top">Back to the beginning <span aria-hidden="true">↑</span></a></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="brand footer-brand"><img src="assets/woopod-mark.png" alt="" width="48"><span>woopod</span></div>
+    <p>Independent Android podcast player · preview documentation</p>
+    <nav aria-label="Footer"><a href="#documentation">Documentation</a><a href="#icons">Icons</a><a href="#roadmap">Roadmap</a></nav>
+    <p class="fine-print">No external analytics, advertising, font or image request is made by this website build.</p>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
