@@ -195,9 +195,11 @@ test("a DOCTYPE cannot be used to expand anything", () => {
 });
 
 test("the worker entry answers the same way in front of a static origin", async () => {
-    const app = worker({ ORIGIN: "https://static.example.com/" });
+    // PAGE_SOURCE, not ORIGIN: the worker reads its page from the repository raw address, so an
+    // unreachable source is the only way this test stays offline and still means something.
+    const app = worker({ PAGE_SOURCE: "https://pages.invalid/" });
     const answered = await app.fetch(new Request(`${ORIGIN}/c/?audio=https%3A%2F%2Fcdn.example.com%2Fa.mp3`));
-    // The stub origin is unreachable here, so the honest answer is a 404 — not a fabricated card.
+    // The page source is unreachable, so the honest answer is a 404 — never a fabricated card.
     assert.equal(answered.status, 404);
 });
 

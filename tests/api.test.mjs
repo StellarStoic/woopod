@@ -181,3 +181,17 @@ test("feed size ceiling rejects rather than silently truncating", async () => {
         await assert.rejects(() => safeFetch('https://example.org/feed',{maxBytes:4}), e => e.code === 'too_large');
     } finally { globalThis.fetch = previous; }
 });
+
+test("an address in an attribute is decoded once, not escaped twice", () => {
+    const feed = `<rss><channel><title>Escaped</title>
+        <itunes:image href="https://cdn.example.com/c.jpg?a=1&amp;b=2&amp;c=3"/>
+        <item><title>One</title><guid>g&amp;1</guid>
+        <enclosure url="https://cdn.example.com/a.mp3?token=x&amp;y=z"/></item></channel></rss>`;
+    const parsed = parseFeed(feed);
+    assert.equal(parsed.channelImage, "https://cdn.example.com/c.jpg?a=1&b=2&c=3");
+    assert.equal(parsed.items[0].enclosure, "https://cdn.example.com/a.mp3?token=x&y=z");
+    assert.equal(parsed.items[0].guid, "g&1");
+    // and once escaped for an HTML attribute the address must survive intact
+    const show = showFromFeed(parsed, "https://feeds.example.com/f.xml");
+    assert.equal(show.artwork, "https://cdn.example.com/c.jpg?a=1&b=2&c=3");
+});

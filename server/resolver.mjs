@@ -97,25 +97,35 @@ function tagText(fragment, name) {
     return match[1].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1").trim();
 }
 
-// Publisher identifiers are opaque: preserve whitespace and decode XML character references once.
+// XML character references are decoded exactly once, here and nowhere else.
+//
+// A tag's text and an attribute's value are both XML values, and both arrive escaped: an artwork or
+// audio address in a feed is written `…?a=1&amp;b=2`. Decoding only the text leaves a doubled escape
+// once the value is escaped again for HTML (`&amp;amp;`), which is a URL that resolves to nothing.
+function decodeEntities(value) {
+    return value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi, (entity, name) => {
+        if (name[0] === '#') {
+            const num = name[1].toLowerCase() === 'x' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+            return Number.isInteger(num) && num > 0 && num <= 0x10ffff && !(num >= 0xd800 && num <= 0xdfff)
+                ? String.fromCodePoint(num) : entity;
+        }
+        return ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[name.toLowerCase()] || entity;
+    });
+}
+
+// Publisher identifiers are opaque: preserve whitespace and decode character references once.
 function identityText(fragment, name) {
     const match = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i").exec(fragment);
     if (!match) return null;
     const value = match[1];
     const cdata = /^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/.exec(value);
     if (cdata) return cdata[1];
-    return value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi, (entity, name) => {
-        if (name[0] === '#') {
-            const num = name[1].toLowerCase() === 'x' ? parseInt(name.slice(2),16) : parseInt(name.slice(1),10);
-            return Number.isInteger(num) && num > 0 && num <= 0x10ffff && !(num >= 0xd800 && num <= 0xdfff) ? String.fromCodePoint(num) : entity;
-        }
-        return ({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"})[name.toLowerCase()] || entity;
-    });
+    return decodeEntities(value);
 }
 
 function attribute(fragment, tag, attributeName) {
     const match = new RegExp(`<${tag}\\b[^>]*\\b${attributeName}\\s*=\\s*["']([^"']*)["']`, "i").exec(fragment);
-    return match ? match[1].trim() : null;
+    return match ? decodeEntities(match[1]).trim() : null;
 }
 
 /**
