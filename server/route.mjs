@@ -80,7 +80,10 @@ export async function handle(request, { getPage, env = {} } = {}) {
             "x-content-type-options": "nosniff",
         },
     });
-    if (cache) {
+    // Only a GET may fill the cache. A HEAD is a request for the headers of a preview, not for the
+    // preview: caching its empty body would hand every later unfurl a blank page for five minutes,
+    // which is exactly the kind of bug that only shows up in production.
+    if (cache && request.method === "GET") {
         try {
             await cache.put(cacheKey, response.clone());
         } catch { /* a cache write is a bonus, never a requirement */ }
@@ -99,23 +102,45 @@ export async function onRequest(context) {
 }
 
 /**
- * Worker entry point, for putting this in front of a static origin instead of a Pages project.
- * Set `ORIGIN` to the site — today that is the GitHub Pages address that serves woopod.com.
+ * The page a preview is injected into, cached on its own so that a thousand different clip links do
+ * not mean a thousand reads of the same file.
+ */
+async function fetchPage(pageUrl) {
+    const cache = typeof caches !== "undefined" ? caches.default : null;
+    const key = new Request(pageUrl, { method: "GET" });
+    if (cache) {
+        const hit = await cache.match(key);
+        if (hit) return hit;
+    }
+    const response = await fetch(pageUrl, {
+        headers: { "user-agent": "woopod share preview (+https://woopod.com)" },
+    });
+    if (cache && response.ok) {
+        try {
+            await cache.put(key, response.clone());
+        } catch { /* a cache write is a bonus */ }
+    }
+    return response;
+}
+
+/**
+ * Worker entry point: this in front of the static site, with a Worker route on `/p*` and `/c*` only.
+ *
+ * `PAGE_SOURCE` must not be the custom domain. GitHub redirects `stellarstoic.github.io/woopod/…` to
+ * https://woopod.com/… once the repository carries a CNAME, and a Worker that follows that redirect
+ * calls itself until Cloudflare stops it. The repository's raw address serves the same bytes with no
+ * redirect: `https://raw.githubusercontent.com/StellarStoic/woopod/main/`.
  */
 export function worker(env = {}) {
-    const origin = (env.ORIGIN || "https://stellarstoic.github.io/woopod/").replace(/\/?$/, "/");
+    const source = (env.PAGE_SOURCE || "https://raw.githubusercontent.com/StellarStoic/woopod/main/")
+        .replace(/\/?$/, "/");
     return {
         async fetch(request) {
             const url = new URL(request.url);
             const kind = kindOf(url.pathname);
             if (!kind) return fetch(request);
-            const pageUrl = new URL(`${kind === "clip" ? "c" : "p"}/index.html`, origin).toString();
-            const answer = await handle(request, {
-                env,
-                getPage: () => fetch(pageUrl, {
-                    headers: { "user-agent": "woopod share preview (+https://woopod.com)" },
-                }),
-            });
+            const pageUrl = new URL(`${kind === "clip" ? "c" : "p"}/index.html`, source).toString();
+            const answer = await handle(request, { env, getPage: () => fetchPage(pageUrl) });
             return answer || fetch(request);
         },
     };
