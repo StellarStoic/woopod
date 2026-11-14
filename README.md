@@ -77,8 +77,30 @@ Android 0.19.5 highlights the entire selected bottom-menu item with a rectangula
 
 Android 0.19.6 lets listeners choose Library, Playlist, Player, Discover or You as the default startup menu in You → Settings. It follows destination names when the bottom menus are reordered.
 
-The browser player does not need Google services, Google Play or an installed app. A missing feed or unavailable resolver produces a readable error with a retry and an original-feed link. The production `/p`, `/c` and `/api/v1/clip` routes still need publication and resolver integration; see `docs/WEB-PLAYER.md` in the Android workspace.
+The browser player does not need Google services, Google Play or an installed app. A missing feed or unavailable resolver produces a readable error with a retry and an original-feed link.
 
 Podcast pages use `/show?f=<encoded HTTPS feed>` and the same-origin `/api/v1/show` resolver; see the workspace `docs/WEB-PLAYER.md` for the required API response and production handoff.
 
-The source supports paginated podcast episode lists (`offset`, `total`, `nextOffset`), rejects feeds above 8 MB rather than returning a partial feed, and supplies podcast-page social cards. These changes require rebundling and redeploying the Worker and configuring its `woopod.com/show*` route; a GitHub push alone only publishes static assets. The public release signing certificate is still needed before Android domain verification can be configured.
+The source supports paginated podcast episode lists (`offset`, `total`, `nextOffset`), rejects feeds above 8 MB rather than returning a partial feed, and supplies podcast-page social cards. These are live: the `woopod-share` Worker serves `woopod.com/p*`, `woopod.com/c*`, `woopod.com/show*` and `woopod.com/api/*` through Cloudflare routes, so share cards and the resolvers answer per link. A GitHub push alone still only publishes static assets — server changes need the Worker rebundled and redeployed.
+
+## Android App Links
+
+`woopod.com` opens links inside the app only when the site vouches for the app: Android fetches
+`https://woopod.com/.well-known/assetlinks.json` and compares the certificate the installed APK is
+signed with against the fingerprints listed there. The manifest declares `woopod.com` with
+`android:autoVerify="true"` for `/show`, `/p` and `/c`.
+
+The published file names the package **`dev.woopod`** and one fingerprint: the **debug** signing
+certificate, so a locally built test APK verifies today.
+
+    # regenerate after any change (normalises the fingerprint and writes the file)
+    python3 woopod_assetlinks.py emit --package dev.woopod --sha256 <SHA-256> --out .well-known/assetlinks.json
+    # then prove the live address the way Android reads it: 200, no redirect, application/json, values present
+    python3 woopod_assetlinks.py verify --package dev.woopod --sha256 <SHA-256>
+
+**When the release key exists**, replace the debug fingerprint rather than adding to it: Play re-signs
+uploads, so the fingerprint that matters is the *app signing key* certificate from Play Console →
+App integrity. Keep the debug fingerprint only while debug builds are being tested, and remove it
+before release — a published association is a statement that any APK signed with that certificate is
+woopod. `adb shell pm verify-app-links --re-verify dev.woopod` re-checks on the device, and
+`adb shell pm get-app-links dev.woopod` reports the state.
