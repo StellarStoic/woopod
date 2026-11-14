@@ -1,7 +1,7 @@
 import { publicUrl, resolverError } from '../player/core.mjs';
 const $ = id => document.getElementById(id);
 const url = new URL(location.href);
-let feed;
+let feed, nextOffset = null, loaded = 0, expectedTotal = null;
 function text(value) {
   const t = document.createElement('template'); t.innerHTML = String(value || '');
   return (t.content.textContent || '').replace(/\s*\n\s*/g, '\n').trim();
@@ -14,18 +14,22 @@ function episodeLink(item, show) {
   if (new TextEncoder().encode(q.toString()).length > 2048) return null;
   return `../p/?${q}`;
 }
-function render(show) {
+function render(show, append = false) {
   $('title').textContent = show.title || 'Podcast';
   document.title = `${show.title || 'Podcast'} · woopod`;
   $('description').textContent = text(show.description);
   if (show.artwork) try { $('cover').src = publicUrl(show.artwork); } catch {}
   $('cover').onerror = () => { $('cover').onerror = null; $('cover').src = '../assets/app-icon-dark.png'; };
   const list = Array.isArray(show.episodes) ? show.episodes : [];
-  $('count').textContent = `${list.length} ${list.length === 1 ? 'episode' : 'episodes'}`;
-  const container = $('episode-list'); container.replaceChildren();
+  const container = $('episode-list'); if (!append) { container.replaceChildren(); loaded = 0; }
+  const startIndex = loaded; loaded += list.length;
+  expectedTotal = Number.isSafeInteger(show.total) && show.total >= loaded ? show.total : null;
+  nextOffset = Number.isSafeInteger(show.nextOffset) && show.nextOffset === loaded ? show.nextOffset : null;
+  $('more').hidden = nextOffset === null;
+  $('count').textContent = expectedTotal !== null && expectedTotal > loaded ? `${loaded} of ${expectedTotal} episodes` : `${loaded} ${loaded === 1 ? 'episode' : 'episodes'}`;
   list.forEach((item, index) => {
     const details = document.createElement('details'), summary = document.createElement('summary');
-    const number = document.createElement('span'); number.className = 'num'; number.textContent = item.number ? `#${item.number}` : String(index + 1).padStart(2, '0');
+    const number = document.createElement('span'); number.className = 'num'; number.textContent = item.number ? `#${item.number}` : String(startIndex + index + 1).padStart(2, '0');
     const title = document.createElement('span'); title.className = 'episode-title'; title.textContent = item.title || 'Untitled episode';
     const plus = document.createElement('span'); plus.className = 'plus'; plus.setAttribute('aria-hidden', 'true'); plus.textContent = '+';
     summary.append(number, title, plus); details.append(summary);
@@ -39,7 +43,7 @@ function render(show) {
   });
   $('status').textContent = list.length ? '' : 'No playable episodes are available in this feed.';
 }
-async function load() {
+async function load(offset = 0) {
   $('retry').hidden = true; $('status').textContent = 'Finding the podcast…';
   try {
     if (url.search === '?demo=1') { render({demo:true, title:'A little room to listen.', description:'Conversations that stay with you. A quiet corner for curious minds.', episodes:[{title:'A voice worth hearing',description:'An original sound sample to explore the Woopod player.'},{title:'Make room for a new idea',description:'Open an episode and enjoy the full player.'}]}); return; }
@@ -47,17 +51,19 @@ async function load() {
     const q = url.searchParams;
     if ([...q.keys()].length !== 1 || q.getAll('f').length !== 1) throw new Error('This link needs one podcast feed.');
     feed = q.get('f'); publicUrl(feed); $('feed').href = feed; $('feed').hidden = false;
-    const response = await fetch(`../api/v1/show?${new URLSearchParams({f:feed})}`, {headers:{Accept:'application/json'}, signal:AbortSignal.timeout(22000), referrerPolicy:'no-referrer'});
+    const params = new URLSearchParams({f:feed}); if (offset) params.set('offset', String(offset));
+    const response = await fetch(`../api/v1/show?${params}`, {headers:{Accept:'application/json'}, signal:AbortSignal.timeout(22000), referrerPolicy:'no-referrer'});
     if (!response.ok) throw new Error(resolverError(await response.json().catch(() => ({}))));
     const show = await response.json();
     if (!show || typeof show.title !== 'string' || !Array.isArray(show.episodes)) throw new Error('The podcast details are incomplete.');
-    render(show);
+    render(show, offset > 0);
   } catch (e) {
     $('status').textContent = e.name === 'TimeoutError' ? 'The podcast took too long to load.' : e.message;
     $('retry').hidden = !feed;
   }
 }
-$('retry').addEventListener('click', load);
+$('retry').addEventListener('click', () => load(0));
+$('more').addEventListener('click', async () => { if (nextOffset === null) return; $('more').disabled = true; try { await load(nextOffset); } finally { $('more').disabled = false; } });
 $('share').addEventListener('click', async () => {
   const target = new URL(location.href); target.protocol = 'https:'; target.host = 'woopod.com'; target.pathname = '/show';
   try { if (navigator.share) await navigator.share({title:document.title,url:target.href}); else { await navigator.clipboard.writeText(target.href); $('status').textContent = 'Link copied.'; } }

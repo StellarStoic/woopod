@@ -30,8 +30,8 @@ function timestamp(value) {
 }
 export function shareMetadata(requestUrl, episode = null) {
   const u = new URL(requestUrl, ORIGIN);
-  const mode = /^\/c\/?$/.test(u.pathname) ? 'clip' : 'episode';
-  const path = mode === 'clip' ? '/c' : '/p';
+  const mode = /^\/c\/?$/.test(u.pathname) ? 'clip' : /^\/show\/?$/.test(u.pathname) ? 'show' : 'episode';
+  const path = mode === 'clip' ? '/c' : mode === 'show' ? '/show' : '/p';
   const validQuery = new TextEncoder().encode(u.search.slice(1)).length <= 2048 && [...u.searchParams.keys()].every(k => u.searchParams.getAll(k).length === 1);
   const q = validQuery ? u.searchParams : new URLSearchParams();
   const title = limit(clean(episode?.title || (q.has('audio') ? q.get('title') : '')), 150);
@@ -40,7 +40,7 @@ export function shareMetadata(requestUrl, episode = null) {
   const start = timestamp(q.get('s')), end = timestamp(q.get('e'));
   const range = start && end && Number(q.get('e')) > Number(q.get('s')) ? ` · ${start}–${end}` : '';
   const note = mode === 'clip' ? comment(q.get('c')) : '';
-  const description = limit(note ? `“${note}”${range}` : `${mode === 'clip' ? 'Listen to a clip' : 'Listen to this episode'}${podcast ? ` from ${podcast}` : ''} on Woopod${mode === 'clip' ? range : ''}.`, 220);
+  const description = mode === 'show' ? limit(clean(episode?.description) || 'Discover this podcast on Woopod.', 220) : limit(note ? `“${note}”${range}` : `${mode === 'clip' ? 'Listen to a clip' : 'Listen to this episode'}${podcast ? ` from ${podcast}` : ''} on Woopod${mode === 'clip' ? range : ''}.`, 220);
   return { title: heading, description, image: imageUrl(episode?.artwork), url: ORIGIN + path + (validQuery ? u.search : '') };
 }
 export function renderShareMetadata(html, metadata) {

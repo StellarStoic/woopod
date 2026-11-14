@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { clipEndpoint, dateOf, handleApi, originAllowed, showFromFeed, showEndpoint } from "../server/api.mjs";
-import { parseFeed } from "../server/resolver.mjs";
+import { parseFeed, safeFetch } from "../server/resolver.mjs";
 
 const FEED = `<?xml version="1.0"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
@@ -156,5 +156,28 @@ test("a giant feed cannot make an unbounded answer", () => {
         `<item><title>Episode ${index}</title><guid>g-${index}</guid>
          <enclosure url="https://cdn.example.com/${index}.mp3"/></item>`).join("");
     const show = showFromFeed(parseFeed(`<rss><channel><title>Big</title>${items}</channel></rss>`), "https://f.example/feed.xml");
-    assert.equal(show.episodes.length, 300, "capped, because the page has no paging");
+    assert.equal(show.episodes.length, 300); assert.equal(show.total, 900); assert.equal(show.nextOffset, 300);
+    const second = showFromFeed(parseFeed(`<rss><channel><title>Big</title>${items}</channel></rss>`), "https://f.example/feed.xml", 300);
+    assert.equal(second.episodes[0].identity, "g-300"); assert.equal(second.nextOffset, 600);
+    const last = showFromFeed(parseFeed(`<rss><channel><title>Big</title>${items}</channel></rss>`), "https://f.example/feed.xml", 600);
+    assert.equal(last.episodes.at(-1).identity, "g-899"); assert.equal(last.nextOffset, null);
+});
+
+test("show endpoint validates paging offsets", async () => {
+    const impl = async () => ({body: `<rss><channel><title>Feed</title><item><title>One</title><guid>g</guid><enclosure url="https://cdn.example/a.mp3"/></item></channel></rss>`, finalUrl:"https://example.org/feed"});
+    for (const offset of ["-1", "1.5", "001", "99999999"]) {
+        const response = await showEndpoint(new URLSearchParams({f:"https://example.org/feed",offset}), {fetchImpl:impl});
+        assert.equal(response.status, 400);
+    }
+    const end = await showEndpoint(new URLSearchParams({f:"https://example.org/feed",offset:"300"}), {fetchImpl:impl});
+    assert.equal(end.status, 200); assert.equal((await end.json()).nextOffset, null);
+});
+
+test("feed size ceiling rejects rather than silently truncating", async () => {
+    const previous = globalThis.fetch;
+    try {
+        globalThis.fetch = async () => new Response('12345');
+        assert.equal((await safeFetch('https://example.org/feed',{maxBytes:5})).body,'12345');
+        await assert.rejects(() => safeFetch('https://example.org/feed',{maxBytes:4}), e => e.code === 'too_large');
+    } finally { globalThis.fetch = previous; }
 });

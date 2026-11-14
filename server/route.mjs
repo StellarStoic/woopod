@@ -7,7 +7,7 @@
 // Not one byte of a stranger's query is logged: it carries a note someone wrote and their clip bounds.
 
 import { renderShareMetadata, shareMetadata } from "../player/share-metadata.mjs";
-import { handleApi } from "./api.mjs";
+import { handleApi, showEndpoint } from "./api.mjs";
 import { resolveEpisode } from "./resolver.mjs";
 
 const CACHE_SECONDS = 300;
@@ -16,6 +16,7 @@ const CACHE_SECONDS = 300;
 export function kindOf(pathname) {
     if (/^\/c\/?$/.test(pathname)) return "clip";
     if (/^\/p\/?$/.test(pathname)) return "episode";
+    if (/^\/show\/?$/.test(pathname)) return "show";
     return null;
 }
 
@@ -27,7 +28,7 @@ export function kindOf(pathname) {
  *
  * Returns null when the address is not /p or /c, so the caller can pass it through untouched.
  */
-export async function handle(request, { getPage, env = {} } = {}) {
+export async function handle(request, { getPage, env = {}, resolveShow = showEndpoint } = {}) {
     const url = new URL(request.url);
     const kind = kindOf(url.pathname);
     if (!kind) return null;
@@ -64,7 +65,10 @@ export async function handle(request, { getPage, env = {} } = {}) {
     let body = html;
     let resolved = null;
     try {
-        resolved = await resolveEpisode(url.searchParams);
+        if (kind === "show") {
+            const show = await resolveShow(url.searchParams);
+            if (show.ok) resolved = await show.json();
+        } else resolved = await resolveEpisode(url.searchParams);
         body = renderShareMetadata(html, shareMetadata(url.toString(), resolved));
     } catch {
         // No markers, a dead feed, a nonsense locator: the player still has to open, so serve the page
@@ -144,7 +148,7 @@ export function worker(env = {}) {
             if (api) return api;
             const kind = kindOf(url.pathname);
             if (!kind) return fetch(request);
-            const pageUrl = new URL(`${kind === "clip" ? "c" : "p"}/index.html`, source).toString();
+            const pageUrl = new URL(`${kind === "clip" ? "c" : kind === "show" ? "show" : "p"}/index.html`, source).toString();
             const answer = await handle(request, { env, getPage: () => fetchPage(pageUrl) });
             return answer || fetch(request);
         },

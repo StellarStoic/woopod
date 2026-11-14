@@ -6,7 +6,7 @@
 // at most three redirects with each hop re-checked, a byte cap, a timeout, and a parser that cannot be
 // talked into expanding an entity.
 
-const FEED_MAX_BYTES = 2_000_000;
+const FEED_MAX_BYTES = 8_000_000;
 const FEED_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 const QUERY_MAX_BYTES = 2048;          // the same bound Android applies
@@ -36,27 +36,21 @@ async function readCapped(response, maxBytes) {
     const reader = response.body?.getReader();
     if (!reader) {
         const buffer = new Uint8Array(await response.arrayBuffer());
-        return new TextDecoder().decode(buffer.subarray(0, maxBytes));
+        if (buffer.byteLength > maxBytes) throw Object.assign(new Error("feed too large"), { code: "too_large" });
+        return new TextDecoder().decode(buffer);
     }
-    const chunks = [];
-    let total = 0;
-    while (total < maxBytes) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        total += value.byteLength;
-    }
+    const chunks = []; let total = 0;
     try {
-        await reader.cancel();
-    } catch { /* already finished */ }
-    const joined = new Uint8Array(Math.min(total, maxBytes));
-    let offset = 0;
-    for (const chunk of chunks) {
-        if (offset >= joined.length) break;
-        const take = Math.min(chunk.byteLength, joined.length - offset);
-        joined.set(chunk.subarray(0, take), offset);
-        offset += take;
-    }
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+            if (total > maxBytes) throw Object.assign(new Error("feed too large"), { code: "too_large" });
+            chunks.push(value);
+        }
+    } finally { try { await reader.cancel(); } catch {} }
+    const joined = new Uint8Array(total); let offset = 0;
+    for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
     return new TextDecoder().decode(joined);
 }
 
@@ -79,18 +73,20 @@ export async function safeFetch(rawUrl, { maxBytes = FEED_MAX_BYTES, timeoutMs =
                 },
             });
         } catch {
-            throw Object.assign(new Error("the feed could not be reached"), { code: "unreachable" });
-        } finally {
             clearTimeout(timer);
+            throw Object.assign(new Error("the feed could not be reached"), { code: "unreachable" });
         }
         if (response.status >= 300 && response.status < 400) {
             const location = response.headers.get("location");
-            if (!location) throw Object.assign(new Error("a redirect with no target"), { code: "bad_redirect" });
+            if (!location) { clearTimeout(timer); throw Object.assign(new Error("a redirect with no target"), { code: "bad_redirect" }); }
+            clearTimeout(timer);
             url = new URL(location, url).toString();     // the next pass revalidates this hop
             continue;
         }
-        if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status}`), { code: "bad_status" });
-        return { body: await readCapped(response, maxBytes), finalUrl: url };
+        if (!response.ok) { clearTimeout(timer); throw Object.assign(new Error(`HTTP ${response.status}`), { code: "bad_status" }); }
+        try { return { body: await readCapped(response, maxBytes), finalUrl: url }; }
+        catch (error) { if (error?.code === "too_large") throw error; throw Object.assign(new Error("the feed could not be reached"), {code:"unreachable"}); }
+        finally { clearTimeout(timer); }
     }
     throw Object.assign(new Error("too many redirects"), { code: "bad_redirect" });
 }
@@ -99,6 +95,22 @@ function tagText(fragment, name) {
     const match = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i").exec(fragment);
     if (!match) return null;
     return match[1].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1").trim();
+}
+
+// Publisher identifiers are opaque: preserve whitespace and decode XML character references once.
+function identityText(fragment, name) {
+    const match = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i").exec(fragment);
+    if (!match) return null;
+    const value = match[1];
+    const cdata = /^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/.exec(value);
+    if (cdata) return cdata[1];
+    return value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi, (entity, name) => {
+        if (name[0] === '#') {
+            const num = name[1].toLowerCase() === 'x' ? parseInt(name.slice(2),16) : parseInt(name.slice(1),10);
+            return Number.isInteger(num) && num > 0 && num <= 0x10ffff && !(num >= 0xd800 && num <= 0xdfff) ? String.fromCodePoint(num) : entity;
+        }
+        return ({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"})[name.toLowerCase()] || entity;
+    });
 }
 
 function attribute(fragment, tag, attributeName) {
@@ -117,7 +129,7 @@ export function parseFeed(xml) {
     const channel = document.split(/<item\b/i)[0].split(/<entry\b/i)[0];
     const channelTitle = tagText(channel, "title") || null;
     const channelImage = attribute(channel, "itunes:image", "href") || tagText(channel, "url") || null;
-    const podcastGuid = tagText(channel, "podcast:guid") || null;
+    const podcastGuid = identityText(channel, "podcast:guid") || null;
     const channelDescription = tagText(channel, "description")
         || tagText(channel, "summary") || tagText(channel, "subtitle") || null;
 
@@ -134,8 +146,8 @@ export function parseFeed(xml) {
             .find(tag => /rel\s*=\s*["']?enclosure/i.test(tag));
         items.push({
             title: tagText(body, "title"),
-            guid: tagText(body, "guid"),
-            atomId: tagText(body, "id"),
+            guid: identityText(body, "guid"),
+            atomId: identityText(body, "id"),
             enclosure: attribute(enclosureTag, "enclosure", "url")
                 || attribute(enclosureTag, "media:content", "url")
                 || (atomEnclosure ? attribute(atomEnclosure, "link", "href") : null),
@@ -172,11 +184,12 @@ export function queryUsable(searchParams) {
  * reader looking at the player.
  */
 export function matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast } = {}) {
-    if (claimedPodcast && parsed.podcastGuid && claimedPodcast !== parsed.podcastGuid) return null;
-    const match = parsed.items.find(item => guid && item.guid === guid)
-        || parsed.items.find(item => atomId && item.atomId === atomId)
-        || parsed.items.find(item => enclosure && item.enclosure === enclosure);
-    if (!match) return null;
+    if (claimedPodcast && claimedPodcast !== parsed.podcastGuid) return null;
+    if ([guid, atomId, enclosure].filter(Boolean).length !== 1) return null;
+    const matches = parsed.items.filter(item => guid ? item.guid === guid : atomId ? item.atomId === atomId :
+        !item.guid && !item.atomId && item.enclosure === enclosure);
+    if (matches.length !== 1) return null;
+    const match = matches[0];
     return {
         title: plain(match.title) || null,
         podcast: plain(parsed.channelTitle) || null,

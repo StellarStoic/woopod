@@ -56,9 +56,9 @@ export function dateOf(raw) {
  * enclosure. `number` is `itunes:episode` when the feed states one — the page otherwise counts the rows
  * itself, which is honest for a feed that has no numbers.
  */
-export function showFromFeed(parsed, finalUrl) {
+export function showFromFeed(parsed, finalUrl, offset = 0) {
     const episodes = [];
-    for (const item of parsed.items) {
+    for (const item of parsed.items.slice(offset, offset + MAX_EPISODES)) {
         const identity = item.guid
             ? { identitySource: "eg", identity: item.guid }
             : item.atomId
@@ -74,7 +74,6 @@ export function showFromFeed(parsed, finalUrl) {
             ...(identity || {}),
         };
         episodes.push(episode);
-        if (episodes.length >= MAX_EPISODES) break;
     }
     return {
         title: cut(parsed.channelTitle, 300) || "Podcast",
@@ -83,6 +82,8 @@ export function showFromFeed(parsed, finalUrl) {
         podcastGuid: parsed.podcastGuid || null,
         feed: finalUrl,
         episodes,
+        total: parsed.items.length,
+        nextOffset: offset + episodes.length < parsed.items.length ? offset + episodes.length : null,
     };
 }
 
@@ -129,8 +130,8 @@ function locatorProblem(searchParams, { needsIdentity = false } = {}) {
     if (!feed) return "This link needs one podcast feed.";
     const refused = targetRefused(feed);
     if (refused) return `That feed address cannot be read: ${refused}.`;
-    if (needsIdentity && !["eg", "ea", "eu"].some(key => searchParams.get(key))) {
-        return "This link needs an episode identity (eg, ea or eu).";
+    if (needsIdentity && ["eg", "ea", "eu"].filter(key => searchParams.get(key)).length !== 1) {
+        return "This link needs exactly one episode identity (eg, ea or eu).";
     }
     return null;
 }
@@ -142,6 +143,7 @@ async function readFeed(searchParams, fetchImpl) {
         answer = await (fetchImpl || safeFetch)(feed);
     } catch (error) {
         const code = error?.code;
+        if (code === "too_large") throw Object.assign(new Error("This feed is too large for the web player. Open the original feed instead."), { status: 422 });
         if (code === "forbidden_target") throw Object.assign(new Error("That feed address cannot be read."), { status: 400 });
         if (code === "unreachable") throw Object.assign(new Error("The podcast feed could not be reached. Try again, or open the feed link."), { status: 502 });
         if (code === "bad_redirect") throw Object.assign(new Error("The podcast feed redirected somewhere unusable."), { status: 502 });
@@ -155,14 +157,17 @@ async function readFeed(searchParams, fetchImpl) {
 export async function showEndpoint(searchParams, { fetchImpl } = {}) {
     const problem = locatorProblem(searchParams);
     if (problem) return failure(problem, 400);
+    const rawOffset = searchParams.get("offset");
+    if (rawOffset !== null && (!/^(?:0|[1-9][0-9]{0,6})$/.test(rawOffset))) return failure("Invalid episode offset.", 400);
+    const offset = rawOffset === null ? 0 : Number(rawOffset);
     let read;
     try {
         read = await readFeed(searchParams, fetchImpl);
     } catch (error) {
         return failure(error.message, error.status || 502);
     }
-    const show = showFromFeed(read.parsed, read.finalUrl);
-    if (!show.episodes.length) return failure("This feed has no episodes to show.", 422);
+    const show = showFromFeed(read.parsed, read.finalUrl, offset);
+    if (!show.total) return failure("This feed has no episodes to show.", 422);
     return json(show);
 }
 

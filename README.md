@@ -80,3 +80,5 @@ Android 0.19.6 lets listeners choose Library, Playlist, Player, Discover or You 
 The browser player does not need Google services, Google Play or an installed app. A missing feed or unavailable resolver produces a readable error with a retry and an original-feed link. The production `/p`, `/c` and `/api/v1/clip` routes still need publication and resolver integration; see `docs/WEB-PLAYER.md` in the Android workspace.
 
 Podcast pages use `/show?f=<encoded HTTPS feed>` and the same-origin `/api/v1/show` resolver; see the workspace `docs/WEB-PLAYER.md` for the required API response and production handoff.
+
+The source supports paginated podcast episode lists (`offset`, `total`, `nextOffset`), rejects feeds above 8 MB rather than returning a partial feed, and supplies podcast-page social cards. These changes require rebundling and redeploying the Worker and configuring its `woopod.com/show*` route; a GitHub push alone only publishes static assets. The public release signing certificate is still needed before Android domain verification can be configured.

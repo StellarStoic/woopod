@@ -148,9 +148,8 @@ test("HEAD carries the preview without the body", async () => {
 
 test("other addresses are not ours", async () => {
     assert.equal(kindOf("/"), null);
-    assert.equal(kindOf("/show/"), null);
+    assert.equal(kindOf("/show/"), "show");
     assert.equal(kindOf("/player/player.mjs"), null);
-    assert.equal(await handle(new Request(`${ORIGIN}/show/`), { getPage: serve(CLIP_PAGE) }), null);
     const rejected = await handle(new Request(`${ORIGIN}/p/`, { method: "POST" }), { getPage: serve(EPISODE_PAGE) });
     assert.equal(rejected.status, 405);
 });
@@ -172,9 +171,9 @@ test("identity precedence is the app's, and a wrong podcast claims nothing", asy
         </channel></rss>`;
     const impl = async () => ({ body: feed, finalUrl: "https://feeds.example.com/f.xml" });
     const byGuid = await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eg=g-1&eu=https%3A%2F%2Fcdn.example.com%2F2.mp3"), { fetchImpl: impl });
-    assert.equal(byGuid.title, "By guid");
+    assert.equal(byGuid, null);
     const byEnclosure = await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eu=https%3A%2F%2Fcdn.example.com%2F2.mp3"), { fetchImpl: impl });
-    assert.equal(byEnclosure.title, "By enclosure");
+    assert.equal(byEnclosure, null);
     assert.equal(await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eg=g-1&pg=pg-2"), { fetchImpl: impl }), null);
     assert.equal((await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eg=g-1&pg=pg-1"), { fetchImpl: impl })).title, "By guid");
 });
@@ -184,10 +183,8 @@ test("an atom entry is found by id and by its link rel=enclosure", async () => {
         <entry><title>Only</title><id>urn:uuid:1</id>
         <link rel="enclosure" href="https://cdn.example.com/only.mp3"/></entry></feed>`;
     const impl = async () => ({ body: atom, finalUrl: "https://feeds.example.com/f.xml" });
-    for (const query of ["f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&ea=urn%3Auuid%3A1",
-                         "f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eu=https%3A%2F%2Fcdn.example.com%2Fonly.mp3"]) {
-        assert.equal((await resolveEpisode(new URLSearchParams(query), { fetchImpl: impl })).title, "Only");
-    }
+    assert.equal((await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&ea=urn%3Auuid%3A1"), {fetchImpl:impl})).title, "Only");
+    assert.equal(await resolveEpisode(new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ff.xml&eu=https%3A%2F%2Fcdn.example.com%2Fonly.mp3"), {fetchImpl:impl}), null);
     assert.equal(parseFeed(atom).channelTitle, "Atom Show");
 });
 
@@ -202,4 +199,31 @@ test("the worker entry answers the same way in front of a static origin", async 
     const answered = await app.fetch(new Request(`${ORIGIN}/c/?audio=https%3A%2F%2Fcdn.example.com%2Fa.mp3`));
     // The stub origin is unreachable here, so the honest answer is a 404 — not a fabricated card.
     assert.equal(answered.status, 404);
+});
+
+test("podcast cards use publisher title, image and the show URL", async () => {
+    const {shareMetadata} = await import("../player/share-metadata.mjs");
+    const data = shareMetadata(`${ORIGIN}/show?f=https%3A%2F%2Fexample.org%2Ffeed`, {title:"A show",description:"Its description",artwork:"https://example.org/cover.jpg"});
+    assert.equal(data.title, "A show"); assert.equal(data.description, "Its description");
+    assert.equal(data.image, "https://example.org/cover.jpg"); assert.ok(data.url.startsWith(`${ORIGIN}/show?`));
+});
+
+test("show route renders publisher metadata and falls back when unavailable", async () => {
+    const page = (await import('node:fs/promises')).readFile(new URL('../show/index.html', import.meta.url), 'utf8');
+    const getPage = serve(await page);
+    const url = `${ORIGIN}/show?f=https%3A%2F%2Ffeeds.example.com%2Ffeed`;
+    const response = await handle(new Request(url), {getPage, resolveShow:async()=>Response.json({title:'The Show',description:'Interesting & thoughtful',artwork:'https://cdn.example.com/a.jpg'})});
+    const html = await response.text();
+    assert.match(html, /property="og:title" content="The Show"/);
+    assert.match(html, /Interesting &amp; thoughtful/);
+    const fallback = await handle(new Request(url), {getPage, resolveShow:async()=>new Response('',{status:502})});
+    assert.equal(fallback.status,200);
+});
+
+test("publisher identities preserve spaces and XML character references", async () => {
+    const feed = `<rss><channel><title>S</title><podcast:guid> P&amp;G </podcast:guid><item><title>E</title><guid> a&amp;b </guid><enclosure url="https://cdn.example.com/a.mp3"/></item></channel></rss>`;
+    const impl = async()=>({body:feed,finalUrl:'https://example.org/feed'});
+    const q = new URLSearchParams({f:'https://example.org/feed',eg:' a&b ',pg:' P&G '});
+    assert.equal((await resolveEpisode(q,{fetchImpl:impl})).title,'E');
+    q.set('eg','a&b'); assert.equal(await resolveEpisode(q,{fetchImpl:impl}),null);
 });
