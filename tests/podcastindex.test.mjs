@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
     authHeaders, mapShow, mapEpisode, publicAddress, readSearchRequest, providerFailure,
-    rateLimit, sha1Hex, searchEndpoint, PI_MAX_LIMIT,
+    rateLimit, sha1Hex, searchEndpoint, categoryEndpoint, PI_MAX_LIMIT,
 } from "../server/podcastindex.mjs";
 
 const KEY = "test-key-not-a-real-one";
@@ -73,6 +73,22 @@ const episode = {
     episodeType: "full",
     link: "https://example.com/ep1",
 };
+
+test("category browsing uses only the documented category and trending endpoints", async () => {
+    const fetchImpl = fakeFetch([
+        ["/categories/list", () => answer({ feeds: [{ id: 9, name: "Comedy" }] })],
+        ["/podcasts/trending", () => answer({ feeds: [feed] })],
+    ]);
+    const options = { env: { PI_API_KEY: KEY, PI_API_SECRET: SECRET }, now: NOW, fetchImpl };
+    let result = await categoryEndpoint(new URLSearchParams(), options);
+    assert.deepEqual((await result.json()).categories, [{ id: 9, name: "Comedy" }]);
+    result = await categoryEndpoint(new URLSearchParams("id=9&url=https://evil.test"), options);
+    assert.equal((await result.json()).results.shows[0].feedUrl, feed.url);
+    const target = new URL(fetchImpl.calls[1].url);
+    assert.equal(target.searchParams.get("cat"), "9");
+    assert.equal(target.searchParams.has("url"), false);
+    assert.equal((await categoryEndpoint(new URLSearchParams("id=9,10"), options)).status, 400);
+});
 
 test("the signature is the documented sha1 of key + secret + date", async () => {
     // Node's SHA-1 is the reference; the endpoint's own helper has to agree with it exactly.

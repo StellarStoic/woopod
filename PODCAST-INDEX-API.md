@@ -1,5 +1,9 @@
 # Podcast Index search — API contract
 
+## Category browsing (prepared; Worker deployment pending)
+
+`GET /api/v1/pi/categories` returns `{provider, categories:[{id,name}]}` from Podcast Index's `/categories/list`. `GET /api/v1/pi/categories?id=9` returns `{provider, results:{shows:[...]}}` from `/podcasts/trending?cat=9&max=200`, using the same show mapping, authentication, request guard, rate limit, and no-cache policy as search. The category ID must be a single positive integer. Unknown parameters are ignored. The list is trending shows, not an exhaustive category listing. Deploy the rebuilt `woopod-share` Worker to activate these routes, then verify the real provider's response shapes and Android dropdown.
+
 Status: **live** on `https://woopod.com` (Worker `woopod-share`, deployment of 2026-11-17). The
 credentials are Worker secrets; the endpoint answers `503 not_configured` only if they are removed.
 

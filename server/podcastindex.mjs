@@ -229,8 +229,8 @@ async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchIm
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
         const address = new URL(`${PI_ORIGIN}${path}`);
-        address.searchParams.set("q", query);
-        address.searchParams.set("max", String(limit));
+        if (query != null) address.searchParams.set(path.endsWith('/trending') ? 'cat' : 'q', query);
+        if (limit != null) address.searchParams.set("max", String(limit));
         const response = await fetchImpl(address.toString(), {
             method: "GET",
             headers: await authHeaders(apiKey, apiSecret, now / 1000),
@@ -259,6 +259,26 @@ async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchIm
     } finally {
         if (timer) clearTimeout(timer);
     }
+}
+
+// Category browsing is deliberately limited to the index's category list and trending feeds.
+export async function categoryEndpoint(searchParams, options = {}) {
+    const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS, rateKey = null } = options;
+    const category = searchParams.get('id');
+    if (category !== null && !/^[1-9][0-9]{0,8}$/.test(category)) return piJson({ error: { code: 'category_invalid', message: 'Invalid category.' } }, 400);
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return piJson({ error: { code: 'not_configured', message: 'Podcast Index is not configured.' } }, 503);
+    if (rateKey) {
+        const verdict = rateLimit(rateKey, { now });
+        if (!verdict.allowed) return piJson({ error: { code: 'rate_limited', message: 'Try again shortly.' } }, 429, { 'retry-after': String(verdict.retryAfter) });
+    }
+    const result = await callProvider(category === null ? '/api/1.0/categories/list' : '/api/1.0/podcasts/trending',
+        { query: category, limit: category === null ? null : 200 },
+        { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
+    if (!result.ok) return piJson({ error: pickError(result), provider: 'podcastindex' }, result.status || 502);
+    const feeds = result.payload.feeds;
+    if (!Array.isArray(feeds)) return piJson({ error: { code: 'provider_error', message: 'Unexpected response from Podcast Index.' } }, 502);
+    if (category === null) return piJson({ provider: 'podcastindex', categories: feeds.map(item => ({ id: Number(item.id), name: piClean(item.name, 80) })).filter(item => Number.isSafeInteger(item.id) && item.id > 0 && item.name) });
+    return piJson({ provider: 'podcastindex', results: { shows: feeds.map(mapShow).filter(Boolean) } });
 }
 
 /**
