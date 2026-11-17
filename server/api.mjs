@@ -20,6 +20,7 @@
 // three redirects with each hop revalidated, a byte cap, a timeout, and no entity expansion.
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
+import { searchEndpoint } from "./podcastindex.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
@@ -210,8 +211,24 @@ export async function clipEndpoint(searchParams, { fetchImpl } = {}) {
  *
  * Cached on the whole address, and — like the share route — only a GET may fill the cache.
  */
-export async function handleApi(request, { fetchImpl } = {}) {
+export async function handleApi(request, { fetchImpl, env = {} } = {}) {
     const url = new URL(request.url);
+
+    // Podcast Index search: a different contract from the page resolvers (it answers an app, not a
+    // page), a different cache rule (nothing is retained until the provider's terms are read), and
+    // the only route that needs secrets. It is answered before the page cache is even considered.
+    if (url.pathname === "/api/v1/pi/search" || url.pathname === "/api/v1/pi/search/") {
+        if (request.method !== "GET" && request.method !== "HEAD") {
+            return new Response(JSON.stringify({ error: "Only GET is allowed." }), {
+                status: 405,
+                headers: { "content-type": "application/json; charset=utf-8", allow: "GET, HEAD" },
+            });
+        }
+        const rateKey = request.headers.get("cf-connecting-ip") || "unknown";
+        const answer = await searchEndpoint(url.searchParams, { env, fetchImpl, rateKey });
+        if (request.method !== "HEAD") return answer;
+        return new Response(null, { status: answer.status, headers: answer.headers });
+    }
     if (!/^\/api\/v1\/(?:clip|show)$/.test(url.pathname)) return null;
 
     if (request.method !== "GET" && request.method !== "HEAD") {

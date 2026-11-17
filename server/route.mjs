@@ -102,7 +102,7 @@ export async function handle(request, { getPage, env = {}, resolveShow = showEnd
  */
 export async function onRequest(context) {
     const { request, env, next } = context;
-    const api = await handleApi(request);
+    const api = await handleApi(request, { env });
     if (api) return api;
     const answer = await handle(request, { getPage: () => next(), env });
     return answer || next();
@@ -144,7 +144,7 @@ export function worker(env = {}) {
     return {
         async fetch(request) {
             const url = new URL(request.url);
-            const api = await handleApi(request);
+            const api = await handleApi(request, { env });
             if (api) return api;
             const kind = kindOf(url.pathname);
             if (!kind) return fetch(request);
@@ -155,4 +155,12 @@ export function worker(env = {}) {
     };
 }
 
+/**
+ * `worker(env)` is what the tests drive, giving each one its own config.
+ *
+ * The bundled artifact does not use this line: Cloudflare passes the bindings per request, so
+ * `woopod_bundle_worker.py` writes a default export that reads `env` on every call instead of
+ * closing over an empty one at import time. A secret set in the dashboard only reaches the code
+ * through that path.
+ */
 export default worker();
