@@ -3,6 +3,8 @@
 Status: **live** on `https://woopod.com` (Worker `woopod-share`, deployment of 2026-11-17). The
 credentials are Worker secrets; the endpoint answers `503 not_configured` only if they are removed.
 
+Deployment pending: the repository raises the requested maximum from 50 to 100. Until the Worker is redeployed, the live service still clamps requests to 50. Podcast Index may return fewer than requested; `/search/byperson` does not document pagination.
+
 The credentials are set in Cloudflare, never in the app, the browser, the repository or a chat
 message. Ask for the secret mechanism, not for the values.
 

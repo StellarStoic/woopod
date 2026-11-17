@@ -98,6 +98,7 @@ test("only q, limit and type are read; nothing else can be forwarded", () => {
     // the app's word for people search is the provider's episode search
     assert.equal(readSearchRequest(new URLSearchParams("q=x&type=people")).value.type, "episodes");
     assert.equal(readSearchRequest(new URLSearchParams("q=x")).value.limit, 20);
+    assert.equal(readSearchRequest(new URLSearchParams("q=x&limit=100")).value.limit, 100);
     // a limit above the ceiling is clamped, and the answer states what was used
     assert.equal(readSearchRequest(new URLSearchParams("q=x&limit=9999")).value.limit, PI_MAX_LIMIT);
 });
