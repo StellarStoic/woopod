@@ -183,6 +183,8 @@ test("the endpoint answers a search, and says what it is not", async () => {
     assert.equal(sent.origin + sent.pathname, "https://api.podcastindex.org/api/1.0/search/byterm");
     assert.deepEqual([...sent.searchParams.keys()].sort(), ["max", "q"]);
     assert.equal(sent.searchParams.get("q"), "test");
+    // Cloudflare Workers reject redirect:"error" outright — Node accepts it, so this must be asserted
+    assert.equal(fetchImpl.calls[0].init.redirect, "manual");
 });
 
 test("both parts, and one of them failing, still answers with the half that worked", async () => {
@@ -226,6 +228,17 @@ test("provider failures keep their category and never quote our credentials", as
     const timeout = providerFailure(0, true);
     assert.equal(timeout.category, "provider_timeout");
     assert.equal(timeout.status, 504);
+});
+
+test("a redirect is refused rather than followed, and reported as its own category", async () => {
+    assert.equal(providerFailure(301, false).category, "provider_redirect");
+    assert.equal(providerFailure(302, false).status, 502);
+    const fetchImpl = fakeFetch([["search/byterm", () => new Response("", { status: 302, headers: { location: "https://elsewhere.test/" } })]]);
+    const response = await searchEndpoint(new URLSearchParams("q=test"), {
+        env: { PI_API_KEY: KEY, PI_API_SECRET: SECRET }, fetchImpl, now: NOW,
+    });
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error.code, "provider_redirect");
 });
 
 test("an aborted provider call is reported as a timeout, not as an empty result", async () => {

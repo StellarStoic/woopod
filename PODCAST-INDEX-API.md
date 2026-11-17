@@ -1,8 +1,7 @@
 # Podcast Index search — API contract
 
-Status: **implemented and tested, not deployed.** The route is in the Worker bundle
-(`server/podcastindex.mjs`), but it answers `503 not_configured` until two Cloudflare Worker
-secrets exist. Nothing below is live yet.
+Status: **live** on `https://woopod.com` (Worker `woopod-share`, deployment of 2026-11-17). The
+credentials are Worker secrets; the endpoint answers `503 not_configured` only if they are removed.
 
 The credentials are set in Cloudflare, never in the app, the browser, the repository or a chat
 message. Ask for the secret mechanism, not for the values.
@@ -141,6 +140,7 @@ Every failure is `application/json` with `cache-control: no-store`:
 | 429 | `provider_rate_limited` | **the provider** is limiting us | back off; this is not the app's fault |
 | 502 | `provider_auth_failed` | the provider refused our credentials — an operator problem | show a soft "search unavailable", do not surface the reason as the user's fault |
 | 502 | `provider_unavailable` · `provider_rejected` · `provider_error` | the provider failed or answered something unexpected | retry once, then degrade |
+| 502 | `provider_redirect` | the provider redirected the request; it is refused rather than followed | retry once, then degrade |
 | 503 | `not_configured` | the deployment has no Podcast Index credentials yet | treat search as absent, not as an error |
 | 504 | `provider_timeout` | the provider did not answer within 8 s | retry once |
 
@@ -192,9 +192,27 @@ answer with an error status.
 
 ```sh
 curl -s 'https://woopod.com/api/v1/pi/search?q=darknet&limit=3'
-# until the secrets exist: 503 {"error":{"code":"not_configured", …}}
-# afterwards:          200 with three shows from the catalogue
 ```
+
+Live answer (trimmed), 2026-11-17:
+
+```json
+{"provider":"podcastindex","query":"darknet","type":"shows","limit":3,
+ "fetchedAt":"2026-11-17T17:08:02.973Z","counts":{"shows":3,"episodes":0},
+ "results":{"shows":[{"source":"podcastindex","feedId":7471171,
+   "podcastGuid":"bf063c26-a058-5396-83ce-00e0dccc6f16",
+   "title":"Darknet Diaries Deutsch",
+   "siteUrl":"https://darknet-diaries-deutsch.podigee.io/",
+   "feedUrl":"https://darknet-diaries-deutsch.podigee.io/feed/mp3",
+   "author":"heise online","language":"de","episodeCount":33,
+   "categories":["Technology"], "lastUpdate":"2026-11-17T15:04:45.000Z", …}, …]},
+ "partial":false,"errors":[],"notice":"Results are from the Podcast Index catalogue, …"}
+```
+
+Other live answers, same date: `type=both` → `200` with `{"shows":2,"episodes":2}` and the episode's
+original `guid` and `audioUrl`; `q=` empty → `400 query_missing`; `type=nope` → `400 type_invalid`;
+`POST` → `405`; `HEAD` → `200` with the same headers and no body; an unknown parameter
+(`&url=…&path=…`) is ignored — one show returned, nothing forwarded.
 
 ## Operator notes
 
@@ -203,6 +221,13 @@ curl -s 'https://woopod.com/api/v1/pi/search?q=darknet&limit=3'
   in the dashboard and in the uploaded script.
 - The endpoint needs no other configuration. If `PI_CACHE_SECONDS` is ever added, whatever it enables
   must be justified by the provider's terms first.
+- `PI_DEBUG=1` as a **plain variable** makes a failed call add a `detail` string to the error: the
+  exception name and message, never a URL, a header or a credential. It exists because Node's `fetch`
+  and the Workers runtime do not accept the same options — see the redirect note below. Leave it off.
+- **Workers accept only `redirect: "follow"` or `"manual"`.** `"error"` throws
+  `TypeError: Invalid redirect value` at the edge while Node accepts it, so a green local test suite
+  proves nothing. The call uses `"manual"` and treats a 3xx as `provider_redirect`; a test asserts the
+  option that is actually sent.
 - The signed headers are `User-Agent`, `X-Auth-Key`, `X-Auth-Date` and
   `Authorization = sha1(key + secret + unixSeconds)`, lower-case hex, valid in a three-minute window.
   Verified against the live API: with a deliberately invalid key the provider names the **key** as

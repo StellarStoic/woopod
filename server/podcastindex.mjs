@@ -219,11 +219,12 @@ export function providerFailure(status, aborted) {
     if (status === 401 || status === 403) return { category: "provider_auth_failed", status: 502, message: "The podcast index refused our credentials." };
     if (status === 429) return { category: "provider_rate_limited", status: 429, message: "The podcast index is rate-limiting us. Try again shortly." };
     if (status === 400) return { category: "provider_rejected", status: 502, message: "The podcast index rejected the request." };
+    if (status >= 300 && status < 400) return { category: "provider_redirect", status: 502, message: "The podcast index redirected the request; it was not followed." };
     if (status >= 500) return { category: "provider_unavailable", status: 502, message: "The podcast index is unavailable." };
     return { category: "provider_error", status: 502, message: "The podcast index answered unexpectedly." };
 }
 
-async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs }) {
+async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs, debug = false }) {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
@@ -234,7 +235,9 @@ async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchIm
             method: "GET",
             headers: await authHeaders(apiKey, apiSecret, now / 1000),
             signal: controller?.signal,
-            redirect: "error",                                  // a redirect is not something to follow blindly
+            // Workers accept only "follow" and "manual": "error" is a Node-only value and throws at
+            // the edge. A redirect is not something to follow blindly, so 3xx is checked below.
+            redirect: "manual",
         });
         if (!response.ok) {
             const failure = providerFailure(response.status, false);
@@ -242,12 +245,17 @@ async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchIm
         }
         const payload = await response.json().catch(() => null);
         if (!payload || typeof payload !== "object") {
-            return { ok: false, ...providerFailure(0, false) };
+            const failure = providerFailure(0, false);
+            if (debug) failure.detail = `unreadable body, status ${response.status}, type ${response.headers.get("content-type") || "none"}`;
+            return { ok: false, ...failure };
         }
         return { ok: true, payload };
     } catch (error) {
         const aborted = error?.name === "AbortError";
-        return { ok: false, ...providerFailure(0, aborted) };
+        const failure = providerFailure(0, aborted);
+        // TEMPORARY diagnostic: what the fetch actually threw, without the URL or any header.
+        if (!aborted && debug) failure.detail = `${error?.name || "Error"}: ${String(error?.message || "").slice(0, 160)}`;
+        return { ok: false, ...failure };
     } finally {
         if (timer) clearTimeout(timer);
     }
@@ -302,9 +310,12 @@ export async function searchEndpoint(searchParams, options = {}) {
         shows: type === "shows" || type === "both",
         episodes: type === "episodes" || type === "both",
     };
+    // `PI_DEBUG=1` on the deployment adds the reason a call failed to the answer. It never carries a
+    // URL, a header or a credential — it exists because a Node test cannot reproduce every edge rule.
+    const debug = env.PI_DEBUG === "1";
     const calls = {};
-    if (wanted.shows) calls.shows = callProvider(PI_PATH_SHOWS, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs });
-    if (wanted.episodes) calls.episodes = callProvider(PI_PATH_EPISODES, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs });
+    if (wanted.shows) calls.shows = callProvider(PI_PATH_SHOWS, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs, debug });
+    if (wanted.episodes) calls.episodes = callProvider(PI_PATH_EPISODES, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs, debug });
 
     const settled = {};
     for (const [name, promise] of Object.entries(calls)) settled[name] = await promise;
@@ -359,6 +370,9 @@ export async function searchEndpoint(searchParams, options = {}) {
 }
 
 function pickError(failure) {
-    return { status: failure.status, code: failure.category, message: failure.message };
+    // TEMPORARY: detail is surfaced while diagnosing; it carries no URL, header or credential.
+    const picked = { status: failure.status, code: failure.category, message: failure.message };
+    if (failure.detail) picked.detail = failure.detail;
+    return picked;
 }
 
