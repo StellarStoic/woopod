@@ -17,7 +17,7 @@ export const PI_USER_AGENT = "Woopod/1.0 (+https://woopod.com)";
 
 export const PI_TIMEOUT_MS = 8000;
 export const PI_DEFAULT_LIMIT = 20;
-export const PI_MAX_LIMIT = 100;
+export const PI_MAX_LIMIT = 200;
 export const PI_MAX_QUERY = 120;
 export const PI_DESCRIPTION_MAX = 400;
 

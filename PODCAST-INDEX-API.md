@@ -3,7 +3,10 @@
 Status: **live** on `https://woopod.com` (Worker `woopod-share`, deployment of 2026-11-17). The
 credentials are Worker secrets; the endpoint answers `503 not_configured` only if they are removed.
 
-Deployment pending: the repository raises the requested maximum from 50 to 100. Until the Worker is redeployed, the live service still clamps requests to 50. Podcast Index may return fewer than requested; `/search/byperson` does not document pagination.
+Measured on the live service, 2026-11-17: this endpoint accepts `limit` up to **200**, and a request for
+200 reaches the provider as `max=200` (the answer echoes the limit it used). **Podcast Index then caps
+its own answer at 60 shows and 100 episodes**, whatever maximum is asked for — so `limit=200` and
+`limit=100` return the same lists. Details under *Measured ceilings* below.
 
 The credentials are set in Cloudflare, never in the app, the browser, the repository or a chat
 message. Ask for the secret mechanism, not for the values.
@@ -20,7 +23,7 @@ GET https://woopod.com/api/v1/pi/search
 |---|---|---|---|
 | `q` | yes | 1–120 characters after trimming; control characters are refused | — |
 | `type` | no | `shows` · `episodes` · `both` (`people` is accepted as another word for `episodes`) | `shows` |
-| `limit` | no | whole number 1–50; a larger value is clamped to 50 and the answer reports the limit used | `20` |
+| `limit` | no | whole number 1–200; a value above 200 is clamped to 200 and the answer reports the limit used | `20` |
 
 Any other query parameter is **ignored, not forwarded**. There is no way to reach another provider
 endpoint, pass a URL, or add an upstream parameter through this route.
@@ -166,6 +169,18 @@ answer with an error status.
 
 ## Limits and behaviour worth knowing
 
+- **Measured ceilings (live, 2026-11-17).** Four queries (`podcast`, `news`, `comedy`, `bitcoin`) were
+  run at `limit=200` and `limit=50`:
+
+  | asked | shows returned | episodes returned |
+  |---|---|---|
+  | `limit=50` | 50 (exactly, every query) | 50 (where any matched) |
+  | `limit=200` | **60** (exactly, every query) | **100** (where any matched) |
+
+  The same total for four unrelated terms means this is the provider's own ceiling, not the size of the
+  match set. Asking above 200 is pointless: it cannot produce a longer list than 60 shows / 100 episodes.
+  `news` and `comedy` returned **no** episodes, which is correct — `/search/byperson` matches people, not
+  topics, so a topic that is not a person's name finds nothing there while `shows` still answers.
 - **Rate limit:** 30 requests per minute per client address, best effort. A Worker runs in many
   isolates, each with its own memory, so this is a cost guard and not a security boundary. The real
   ceiling is the provider's quota, which the app is told about rather than shielded from.

@@ -99,6 +99,8 @@ test("only q, limit and type are read; nothing else can be forwarded", () => {
     assert.equal(readSearchRequest(new URLSearchParams("q=x&type=people")).value.type, "episodes");
     assert.equal(readSearchRequest(new URLSearchParams("q=x")).value.limit, 20);
     assert.equal(readSearchRequest(new URLSearchParams("q=x&limit=100")).value.limit, 100);
+    // the provider documents up to 1000; this endpoint allows 200, and anything above is clamped
+    assert.equal(readSearchRequest(new URLSearchParams("q=x&limit=200")).value.limit, 200);
     // a limit above the ceiling is clamped, and the answer states what was used
     assert.equal(readSearchRequest(new URLSearchParams("q=x&limit=9999")).value.limit, PI_MAX_LIMIT);
 });
