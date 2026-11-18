@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
     authHeaders, mapShow, mapEpisode, publicAddress, readSearchRequest, providerFailure,
-    rateLimit, sha1Hex, searchEndpoint, categoryEndpoint, PI_MAX_LIMIT,
+    rateLimit, sha1Hex, searchEndpoint, categoryEndpoint, guidEndpoint, PI_MAX_LIMIT,
 } from "../server/podcastindex.mjs";
 
 const KEY = "test-key-not-a-real-one";
@@ -73,6 +73,18 @@ const episode = {
     episodeType: "full",
     link: "https://example.com/ep1",
 };
+
+test("podcast GUID lookup is limited to the byguid endpoint", async () => {
+    const fetchImpl = fakeFetch([["/podcasts/byguid", () => answer({ feed })]]);
+    const options = { env: { PI_API_KEY: KEY, PI_API_SECRET: SECRET }, now: NOW, fetchImpl };
+    const guid = "917393e3-1b1e-5cef-ace4-edaa54e1f810";
+    const result = await guidEndpoint(new URLSearchParams({ guid, path: "/admin" }), options);
+    assert.equal((await result.json()).results.shows[0].feedUrl, feed.url);
+    const target = new URL(fetchImpl.calls[0].url);
+    assert.equal(target.searchParams.get("guid"), guid);
+    assert.equal(target.searchParams.has("path"), false);
+    assert.equal((await guidEndpoint(new URLSearchParams("guid=bad"), options)).status, 400);
+});
 
 test("category browsing uses only the documented category and trending endpoints", async () => {
     const fetchImpl = fakeFetch([

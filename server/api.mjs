@@ -20,7 +20,7 @@
 // three redirects with each hop revalidated, a byte cap, a timeout, and no entity expansion.
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
-import { searchEndpoint, categoryEndpoint } from "./podcastindex.mjs";
+import { searchEndpoint, categoryEndpoint, guidEndpoint } from "./podcastindex.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
@@ -217,7 +217,7 @@ export async function handleApi(request, { fetchImpl, env = {} } = {}) {
     // Podcast Index search: a different contract from the page resolvers (it answers an app, not a
     // page), a different cache rule (nothing is retained until the provider's terms are read), and
     // the only route that needs secrets. It is answered before the page cache is even considered.
-    if (/^\/api\/v1\/pi\/(?:search|categories)\/?$/.test(url.pathname)) {
+    if (/^\/api\/v1\/pi\/(?:search|categories|show)\/?$/.test(url.pathname)) {
         if (request.method !== "GET" && request.method !== "HEAD") {
             return new Response(JSON.stringify({ error: "Only GET is allowed." }), {
                 status: 405,
@@ -225,7 +225,7 @@ export async function handleApi(request, { fetchImpl, env = {} } = {}) {
             });
         }
         const rateKey = request.headers.get("cf-connecting-ip") || "unknown";
-        const endpoint = url.pathname.replace(/\/$/, '').endsWith('/categories') ? categoryEndpoint : searchEndpoint;
+        const endpoint = url.pathname.replace(/\/$/, '').endsWith('/categories') ? categoryEndpoint : url.pathname.replace(/\/$/, '').endsWith('/show') ? guidEndpoint : searchEndpoint;
         const answer = await endpoint(url.searchParams, { env, fetchImpl, rateKey });
         if (request.method !== "HEAD") return answer;
         return new Response(null, { status: answer.status, headers: answer.headers });

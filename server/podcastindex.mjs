@@ -229,7 +229,7 @@ async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchIm
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
         const address = new URL(`${PI_ORIGIN}${path}`);
-        if (query != null) address.searchParams.set(path.endsWith('/trending') ? 'cat' : 'q', query);
+        if (query != null) address.searchParams.set(path.endsWith('/trending') ? 'cat' : path.endsWith('/byguid') ? 'guid' : 'q', query);
         if (limit != null) address.searchParams.set("max", String(limit));
         const response = await fetchImpl(address.toString(), {
             method: "GET",
@@ -279,6 +279,23 @@ export async function categoryEndpoint(searchParams, options = {}) {
     if (!Array.isArray(feeds)) return piJson({ error: { code: 'provider_error', message: 'Unexpected response from Podcast Index.' } }, 502);
     if (category === null) return piJson({ provider: 'podcastindex', categories: feeds.map(item => ({ id: Number(item.id), name: piClean(item.name, 80) })).filter(item => Number.isSafeInteger(item.id) && item.id > 0 && item.name) });
     return piJson({ provider: 'podcastindex', results: { shows: feeds.map(mapShow).filter(Boolean) } });
+}
+
+export async function guidEndpoint(searchParams, options = {}) {
+    const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS, rateKey = null } = options;
+    const guid = searchParams.get('guid') || '';
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(guid)) return piJson({ error: { code: 'guid_invalid', message: 'Invalid podcast GUID.' } }, 400);
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return piJson({ error: { code: 'not_configured', message: 'Podcast Index is not configured.' } }, 503);
+    if (rateKey) {
+        const verdict = rateLimit(rateKey, { now });
+        if (!verdict.allowed) return piJson({ error: { code: 'rate_limited', message: 'Try again shortly.' } }, 429, { 'retry-after': String(verdict.retryAfter) });
+    }
+    const result = await callProvider('/api/1.0/podcasts/byguid', { query: guid, limit: null },
+        { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
+    if (!result.ok) return piJson({ error: pickError(result), provider: 'podcastindex' }, result.status || 502);
+    const show = mapShow(result.payload.feed);
+    if (!show || !show.feedUrl) return piJson({ error: { code: 'not_found', message: 'Podcast not found.' }, provider: 'podcastindex' }, 404);
+    return piJson({ provider: 'podcastindex', results: { shows: [show] } });
 }
 
 /**

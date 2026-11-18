@@ -1,5 +1,9 @@
 # Podcast Index search — API contract
 
+## Podcast GUID lookup (prepared; Worker deployment pending)
+
+`GET /api/v1/pi/show?guid=<podcast-guid>` looks up `/podcasts/byguid` using the existing Worker credentials and returns `{provider:"podcastindex", results:{shows:[...]}}` with the same sanitized show shape as search. Only a single UUID GUID is accepted; unrelated parameters are ignored, and the existing rate limit, timeout and no-cache policy apply. Rebuild and deploy `woopod-share`, then verify a real GUID-only Podroll entry and a missing GUID. A publisher feed URL remains usable without this endpoint.
+
 ## Category browsing — live
 
 `GET /api/v1/pi/categories` returns `{provider, categories:[{id,name}]}` from Podcast Index's
