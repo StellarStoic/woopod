@@ -1,8 +1,29 @@
 # Podcast Index search — API contract
 
-## Category browsing (prepared; Worker deployment pending)
+## Category browsing — live
 
-`GET /api/v1/pi/categories` returns `{provider, categories:[{id,name}]}` from Podcast Index's `/categories/list`. `GET /api/v1/pi/categories?id=9` returns `{provider, results:{shows:[...]}}` from `/podcasts/trending?cat=9&max=200`, using the same show mapping, authentication, request guard, rate limit, and no-cache policy as search. The category ID must be a single positive integer. Unknown parameters are ignored. The list is trending shows, not an exhaustive category listing. Deploy the rebuilt `woopod-share` Worker to activate these routes, then verify the real provider's response shapes and Android dropdown.
+`GET /api/v1/pi/categories` returns `{provider, categories:[{id,name}]}` from Podcast Index's
+`/categories/list`. `GET /api/v1/pi/categories?id=16` returns `{provider, results:{shows:[...]}}` from
+`/podcasts/trending?cat=16&max=200`, using the same show mapping, authentication, request guard, rate
+limit and no-cache policy as search. Only `id` is read; every other parameter is ignored. The show
+list is what the provider calls **trending** for that category — not an exhaustive listing of it.
+
+Measured on the live service, 2026-11-18:
+
+| request | status | body |
+|---|---|---|
+| `GET /api/v1/pi/categories` | 200 | `{provider:"podcastindex", categories:[…]}` — **112** categories, every item an integer `id` plus `name`, all unique, `1 Arts`, `2 Books`, `3 Design`, … |
+| `GET /api/v1/pi/categories?id=16` (Comedy) | 200 | `{provider, results:{shows:[…]}}` — **200** shows, 200 distinct `feedId`s, every one carrying `feedUrl` |
+| `GET /api/v1/pi/categories?id=1` (Arts) | 200 | 200 shows, mapped identically — same 18 keys as a search result |
+| `GET /api/v1/pi/categories?id=999999` (well formed, unknown) | 200 | `{provider:"podcastindex", results:{shows:[]}}` — an empty list, not an error |
+| `?id=0`, `?id=abc`, `?id=16,10`, `?id=999999999999` | 400 | `category_invalid` |
+| `POST` | 405 | `allow: GET, HEAD` |
+| `HEAD` | 200 | same headers, no body |
+| `?id=16&url=https://evil.test/x` | 200 | parameter ignored, nothing forwarded |
+
+**Trending honours `max=200` where search does not.** A category answers with 200 shows while
+`/api/v1/pi/search` tops out at 60 (see *Measured ceilings*). Two different provider endpoints, two
+different ceilings — do not carry an assumption from one to the other.
 
 Status: **live** on `https://woopod.com` (Worker `woopod-share`, deployment of 2026-11-17). The
 credentials are Worker secrets; the endpoint answers `503 not_configured` only if they are removed.
