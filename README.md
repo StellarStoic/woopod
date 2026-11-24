@@ -69,7 +69,7 @@ The user approved publishing the website. Future changes must preserve changes m
 
 Public conversation code uses bundled signature verification, public relay reads and explicit browser-signer approval. See workspace docs/PUBLIC-SOCIAL.md and docs/APP-WEB-PUBLIC-SOCIAL-HANDOFF.md for protocol, local admission and production requirements. Rebuild the bundle with `npm ci --prefix tools/web-social --ignore-scripts` and `npm run --prefix tools/web-social build` from the Android workspace; no build is required to serve the generated static files.
 
-Android 0.19.3 replaces the Bitcoin icon with V4V. The large support window visually separates payment-service links, other URLs and crypto destinations without group headings, preserving publisher labels and routing information.
+The Player support button defaults to V4V; You → Appearance offers Bitcoin, major currency symbols, a piggy bank and a coin. The choice is included in backups. The large support window visually separates payment-service links, other URLs and crypto destinations without group headings, preserving publisher labels and routing information.
 
 Android 0.19.4 places buffering feedback in the Player timeline’s space and restores the seek bar when buffering ends.
 
