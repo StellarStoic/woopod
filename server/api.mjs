@@ -245,7 +245,9 @@ export async function handleApi(request, { fetchImpl, env = {} } = {}) {
     // Podcast Index search: a different contract from the page resolvers (it answers an app, not a
     // page), a different cache rule (nothing is retained until the provider's terms are read), and
     // the only route that needs secrets. It is answered before the page cache is even considered.
-    if (/^\/api\/v1\/pi\/(?:search|categories|show)\/?$/.test(url.pathname)) {
+    // `episode` is the byguid lookup the clip/shown resolver falls back to on an oversized feed — it is
+    // a route of its own, not only an internal call, or the app could not ask for it directly
+    if (/^\/api\/v1\/pi\/(?:search|categories|show|episode)\/?$/.test(url.pathname)) {
         if (request.method !== "GET" && request.method !== "HEAD") {
             return new Response(JSON.stringify({ error: "Only GET is allowed." }), {
                 status: 405,
@@ -253,7 +255,11 @@ export async function handleApi(request, { fetchImpl, env = {} } = {}) {
             });
         }
         const rateKey = request.headers.get("cf-connecting-ip") || "unknown";
-        const endpoint = url.pathname.replace(/\/$/, '').endsWith('/categories') ? categoryEndpoint : url.pathname.replace(/\/$/, '').endsWith('/show') ? guidEndpoint : searchEndpoint;
+        const path = url.pathname.replace(/\/$/, '');
+        const endpoint = path.endsWith('/categories') ? categoryEndpoint
+            : path.endsWith('/show') ? guidEndpoint
+            : path.endsWith('/episode') ? episodeByGuidEndpoint
+            : searchEndpoint;
         const answer = await endpoint(url.searchParams, { env, fetchImpl, rateKey });
         if (request.method !== "HEAD") return answer;
         return new Response(null, { status: answer.status, headers: answer.headers });
