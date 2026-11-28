@@ -5,6 +5,14 @@ export function publicUrl(value) {
   return url.href;
 }
 
+// Many stations only stream over plain HTTP; a live stream is public broadcast, so http is fine for radio.
+export function radioUrl(value) {
+  const url = new URL(value);
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.hash) throw new Error('Use a public stream link without a password or fragment.');
+  if (!url.hostname || ['localhost', 'localhost.localdomain'].includes(url.hostname)) throw new Error('Use a public radio link.');
+  return url.href;
+}
+
 export function seconds(value) {
   if (!/^\d+(?:\.\d{1,3})?$/.test(value ?? '')) throw new Error('Clip times must be positive seconds, with up to three decimal places.');
   const time = Number(value);
@@ -45,9 +53,9 @@ export function parseLink(search, mode) {
     // clip conversation — a stream has no length to select inside and nothing to resolve.
     if (!q.has('audio')) throw new Error('This radio link is missing its stream.');
     if (q.has('f') || q.has('s') || q.has('e')) throw new Error('A radio link carries only the stream, a name and a homepage.');
-    result.audio = publicUrl(q.get('audio'));
+    result.audio = radioUrl(q.get('audio'));
     result.title = (q.get('title') || 'Radio').slice(0, 200);
-    result.homepage = q.has('homepage') ? publicUrl(q.get('homepage')) : '';
+    result.homepage = q.has('homepage') ? radioUrl(q.get('homepage')) : '';
     result.query = q;
     return result;
   }

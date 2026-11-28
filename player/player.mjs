@@ -1,5 +1,5 @@
 import { mountConversation } from './conversation.mjs';
-import { parseLink, publicUrl, bounds, timecode, BoundedPlayback, resolverError } from './core.mjs';
+import { parseLink, publicUrl, radioUrl, bounds, timecode, BoundedPlayback, resolverError } from './core.mjs';
 
 const $ = id => document.getElementById(id);
 const audio = $('audio');
@@ -8,9 +8,9 @@ const page = new URL(location.href);
 let request, controller, durationTimer, initialized = false;
 const status = (message, error = false) => { $('status').textContent = message; $('status').classList.toggle('error', error); };
 const icon = (id, name) => $(id).querySelector('use').setAttribute('href', `#icon-${name}`);
-const showLink = (id, value) => {
+const showLink = (id, value, validate = publicUrl) => {
   if (!value) return;
-  try { $(id).href = publicUrl(value); $(id).hidden = false; } catch { /* Never turn unsafe publisher metadata into a link. */ }
+  try { $(id).href = validate(value); $(id).hidden = false; } catch { /* Never turn unsafe publisher metadata into a link. */ }
 };
 function renderPosition() {
   if (!controller) return;
@@ -150,7 +150,7 @@ function startRadio() {
   $('podcast-name').textContent = 'Radio';
   $('episode-meta').textContent = 'Live stream · press play to listen';
   document.title = `${request.title} · woopod`;
-  showLink('publisher', request.homepage);
+  showLink('publisher', request.homepage, radioUrl);
   // the episode controls have no meaning on a stream that is being broadcast right now
   for (const id of ['restart', 'back', 'forward', 'seek']) $(id).hidden = true;
   $('timeline').hidden = true;

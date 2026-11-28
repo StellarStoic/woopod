@@ -96,12 +96,14 @@ test("the player accepts the radio link the app emits, and refuses what it must"
     assert.equal(bare.title, "Radio", "an unnamed station still has a name on screen");
     assert.equal(bare.homepage, "");
 
-    // the same publicUrl rules as every other link: HTTPS only, no credentials, no fragment
-    assert.throws(() => parseLink("?audio=http%3A%2F%2Fstream.example.com%2Flive.mp3", "radio"), /public HTTPS/);
-    assert.throws(() => parseLink("?audio=https%3A%2F%2Fu%3Ap%40stream.example.com%2Flive.mp3", "radio"), /public HTTPS/);
-    assert.throws(() => parseLink(`?audio=${encodeURIComponent(AUDIO + "#x")}`, "radio"), /public HTTPS/);
+    // radio streams may be plain HTTP (public broadcast); credentials, fragments and non-HTTP schemes stay refused
+    const plain = parseLink("?audio=http%3A%2F%2Fstream.example.com%2Flive.mp3&homepage=http%3A%2F%2Fradio.example.com%2F", "radio");
+    assert.equal(plain.audio, "http://stream.example.com/live.mp3");
+    assert.equal(plain.homepage, "http://radio.example.com/");
+    assert.throws(() => parseLink("?audio=ftp%3A%2F%2Fstream.example.com%2Flive.mp3", "radio"), /public stream/);
+    assert.throws(() => parseLink("?audio=https%3A%2F%2Fu%3Ap%40stream.example.com%2Flive.mp3", "radio"), /public stream/);
+    assert.throws(() => parseLink(`?audio=${encodeURIComponent(AUDIO + "#x")}`, "radio"), /public stream/);
     assert.throws(() => parseLink("?title=No%20stream", "radio"), /missing its stream/);
-    assert.throws(() => parseLink(`?audio=${encodeURIComponent(AUDIO)}&homepage=http%3A%2F%2Fradio.example.com%2F`, "radio"), /public HTTPS/);
     assert.throws(() => parseLink(`?audio=${encodeURIComponent(AUDIO)}&s=15&e=45`, "radio"), /only the stream/);
     assert.throws(() => parseLink(`?audio=${encodeURIComponent(AUDIO)}&f=${encodeURIComponent("https://feeds.example.com/f.xml")}`, "radio"), /only the stream/);
     // a repeated field is refused before any of that, as everywhere else
