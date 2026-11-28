@@ -1,5 +1,5 @@
 import { mountConversation } from './conversation.mjs';
-import { parseLink, publicUrl, radioUrl, radioPlayback, bounds, timecode, BoundedPlayback, resolverError } from './core.mjs';
+import { parseLink, publicUrl, radioUrl, bounds, timecode, BoundedPlayback, resolverError } from './core.mjs';
 
 const $ = id => document.getElementById(id);
 const audio = $('audio');
@@ -163,7 +163,7 @@ function startRadio() {
   $('play').disabled = false;
   status('Press play to listen live.');
   audio.preload = 'none';
-  audio.src = radioPlayback(request.audio, location.protocol);
+  audio.src = request.audio;
   audio.addEventListener('playing', () => { status('Listening live.'); renderRadio(); });
   audio.addEventListener('pause', () => status('Paused. The station plays live, so you rejoin where it is now.'));
   audio.addEventListener('waiting', () => { if (!audio.paused) status('Buffering…'); });

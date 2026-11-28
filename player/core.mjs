@@ -13,12 +13,6 @@ export function radioUrl(value) {
   return url.href;
 }
 
-// Browsers auto-upgrade plain-HTTP audio on an HTTPS page, which breaks HTTP-only stations; those play
-// through the same-origin relay instead. The shared link itself keeps the original stream URL.
-export function radioPlayback(url, pageProtocol) {
-  return pageProtocol === 'https:' && url.startsWith('http:') ? `/api/v1/radio-stream?u=${encodeURIComponent(url)}` : url;
-}
-
 export function seconds(value) {
   if (!/^\d+(?:\.\d{1,3})?$/.test(value ?? '')) throw new Error('Clip times must be positive seconds, with up to three decimal places.');
   const time = Number(value);
