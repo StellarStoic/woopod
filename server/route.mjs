@@ -73,7 +73,7 @@ export async function handle(request, { getPage, env = {}, resolveShow = showEnd
         } else if (kind === "show") {
             const show = await resolveShow(url.searchParams);
             if (show.ok) resolved = await show.json();
-        } else resolved = await resolveEpisode(url.searchParams);
+        } else resolved = await resolveEpisode(url.searchParams, { env });
         body = renderShareMetadata(html, shareMetadata(url.toString(), resolved));
     } catch {
         // No markers, a dead feed, a nonsense locator: the player still has to open, so serve the page

@@ -147,6 +147,7 @@ export function mapEpisode(item) {
         audioUrl: publicAddress(item.enclosureUrl),
         audioType: piClean(item.enclosureType, 80) || null,
         audioLength: Number.isFinite(Number(item.enclosureLength)) ? Number(item.enclosureLength) : null,
+        description: piClean(item.description),
         duration: Number.isFinite(Number(item.duration)) ? Number(item.duration) : null,
         datePublished: iso(item.datePublished),
         explicit: Boolean(item.explicit),
@@ -296,6 +297,30 @@ export async function guidEndpoint(searchParams, options = {}) {
     const show = mapShow(result.payload.feed);
     if (!show || !show.feedUrl) return piJson({ error: { code: 'not_found', message: 'Podcast not found.' }, provider: 'podcastindex' }, 404);
     return piJson({ provider: 'podcastindex', results: { shows: [show] } });
+}
+
+/**
+ * Answer `GET /api/v1/pi/episode?guid=…` — a single episode by its GUID.
+ *
+ * This is used as a fallback when a publisher feed is too large to fetch and parse in the Worker.
+ */
+export async function episodeByGuidEndpoint(searchParams, options = {}) {
+    const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS, rateKey = null } = options;
+    const guid = searchParams.get('guid') || '';
+    if (!guid) return piJson({ error: { code: 'guid_missing', message: 'An episode GUID is required.' } }, 400);
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return piJson({ error: { code: 'not_configured', message: 'Podcast Index is not configured.' } }, 503);
+    if (rateKey) {
+        const verdict = rateLimit(rateKey, { now });
+        if (!verdict.allowed) return piJson({ error: { code: 'rate_limited', message: 'Try again shortly.' } }, 429, { 'retry-after': String(verdict.retryAfter) });
+    }
+    const result = await callProvider('/api/1.0/episodes/byguid', { query: guid, limit: null },
+        { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
+    if (!result.ok) return piJson({ error: pickError(result), provider: 'podcastindex' }, result.status || 502);
+    const episode = result.payload.episode || (Array.isArray(result.payload.episodes) ? result.payload.episodes[0] : null);
+    if (!episode) return piJson({ error: { code: 'not_found', message: 'Episode not found.' }, provider: 'podcastindex' }, 404);
+    const mapped = mapEpisode(episode);
+    if (!mapped) return piJson({ error: { code: 'provider_error', message: 'Unexpected response from Podcast Index.' }, provider: 'podcastindex' }, 502);
+    return piJson({ provider: 'podcastindex', episode: mapped });
 }
 
 /**

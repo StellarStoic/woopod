@@ -20,11 +20,12 @@
 // three redirects with each hop revalidated, a byte cap, a timeout, and no entity expansion.
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
-import { searchEndpoint, categoryEndpoint, guidEndpoint } from "./podcastindex.mjs";
+import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint } from "./podcastindex.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
 const TEXT_LIMIT = 600;
+const PI_TIMEOUT_MS = 8_000;
 
 const SITE_ORIGIN = "https://woopod.com";
 
@@ -144,7 +145,7 @@ async function readFeed(searchParams, fetchImpl) {
         answer = await (fetchImpl || safeFetch)(feed);
     } catch (error) {
         const code = error?.code;
-        if (code === "too_large") throw Object.assign(new Error("This feed is too large for the web player. Open the original feed instead."), { status: 422 });
+        if (code === "too_large") throw Object.assign(new Error("This feed is too large for the web player. Open the original feed instead."), { status: 422, code: "too_large" });
         if (code === "forbidden_target") throw Object.assign(new Error("That feed address cannot be read."), { status: 400 });
         if (code === "unreachable") throw Object.assign(new Error("The podcast feed could not be reached. Try again, or open the feed link."), { status: 502 });
         if (code === "bad_redirect") throw Object.assign(new Error("The podcast feed redirected somewhere unusable."), { status: 502 });
@@ -173,22 +174,31 @@ export async function showEndpoint(searchParams, { fetchImpl } = {}) {
 }
 
 /** GET /api/v1/clip?f=…&eg|ea|eu=… — one episode, by the locator the app shares. */
-export async function clipEndpoint(searchParams, { fetchImpl } = {}) {
+export async function clipEndpoint(searchParams, { fetchImpl, env = {} } = {}) {
     const problem = locatorProblem(searchParams, { needsIdentity: true });
     if (problem) return failure(problem, 400);
 
+    const guid = searchParams.get("eg");
     let read;
     try {
         read = await readFeed(searchParams, fetchImpl);
     } catch (error) {
+        if (error?.code === "too_large" && guid && env.PI_API_KEY && env.PI_API_SECRET) {
+            const fromIndex = await episodeByGuid(new URLSearchParams({ guid }), searchParams.get("f"), { env, fetchImpl });
+            if (fromIndex) return json(fromIndex);
+        }
         return failure(error.message, error.status || 502);
     }
-    const episode = matchEpisode(read.parsed, read.finalUrl, {
-        guid: searchParams.get("eg"),
+    let episode = matchEpisode(read.parsed, read.finalUrl, {
+        guid,
         atomId: searchParams.get("ea"),
         enclosure: searchParams.get("eu"),
         claimedPodcast: searchParams.get("pg"),
     });
+    if (!episode && guid && env.PI_API_KEY && env.PI_API_SECRET) {
+        const fromIndex = await episodeByGuid(new URLSearchParams({ guid }), searchParams.get("f"), { env, fetchImpl });
+        if (fromIndex) return json(fromIndex);
+    }
     if (!episode) {
         return failure("That episode is not in this feed. You can still open the feed below.", 404);
     }
@@ -204,6 +214,24 @@ export async function clipEndpoint(searchParams, { fetchImpl } = {}) {
         summary: episode.summary ? cut(episode.summary) : null,
         feed: episode.feed || null,
     });
+}
+
+async function episodeByGuid(searchParams, requestedFeed, { env, fetchImpl }) {
+    const response = await episodeByGuidEndpoint(searchParams, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const mapped = payload?.episode;
+    if (!mapped) return null;
+    if (mapped.feedUrl && mapped.feedUrl !== requestedFeed) return null;
+    return {
+        title: mapped.title || null,
+        podcast: mapped.feedTitle || null,
+        artwork: mapped.artwork || null,
+        audio: mapped.audioUrl || null,
+        summary: mapped.description || null,
+        episodeNumber: mapped.episodeNumber || null,
+        feed: mapped.feedUrl || null,
+    };
 }
 
 /**
@@ -256,7 +284,7 @@ export async function handleApi(request, { fetchImpl, env = {} } = {}) {
     const endpoint = url.pathname.endsWith("/show") ? showEndpoint : clipEndpoint;
     let response;
     try {
-        response = await endpoint(url.searchParams, { fetchImpl });
+        response = await endpoint(url.searchParams, { fetchImpl, env });
     } catch (error) {
         response = failure(error?.message || "The podcast resolver is unavailable.", 502);
     }

@@ -195,3 +195,49 @@ test("an address in an attribute is decoded once, not escaped twice", () => {
     const show = showFromFeed(parsed, "https://feeds.example.com/f.xml");
     assert.equal(show.artwork, "https://cdn.example.com/c.jpg?a=1&b=2&c=3");
 });
+
+const piEnv = { PI_API_KEY: "key", PI_API_SECRET: "secret" };
+
+const piEpisode = (overrides = {}) => ({
+    title: "Fallback 42",
+    feedTitle: "A Show",
+    feedUrl: "https://feeds.example.com/feed.xml",
+    enclosureUrl: "https://cdn.example.com/fallback.mp3",
+    ...overrides,
+});
+
+const piFetchFor = (episode, feedImpl, guid = "ep-42") => async address => {
+    if (address.startsWith("https://api.podcastindex.org/api/1.0/episodes/byguid")) {
+        assert.ok(address.includes(`guid=${guid}`), address);
+        return Response.json({ episode });
+    }
+    return feedImpl(address);
+};
+
+test("an oversized feed falls back to Podcast Index when a guid is available", async () => {
+    const tooLarge = async () => { throw Object.assign(new Error("too big"), { code: "too_large" }); };
+    const response = await clipEndpoint(
+        params("f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml&eg=ep-42"),
+        { fetchImpl: piFetchFor(piEpisode(), tooLarge), env: piEnv });
+    assert.equal(response.status, 200);
+    const episode = await response.json();
+    assert.equal(episode.title, "Fallback 42");
+    assert.equal(episode.podcast, "A Show");
+    assert.equal(episode.audio, "https://cdn.example.com/fallback.mp3");
+});
+
+test("a missing guid in the feed falls back to Podcast Index", async () => {
+    const response = await clipEndpoint(
+        params("f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml&eg=missing"),
+        { fetchImpl: piFetchFor(piEpisode(), impl, "missing"), env: piEnv });
+    assert.equal(response.status, 200);
+    const episode = await response.json();
+    assert.equal(episode.title, "Fallback 42");
+});
+
+test("a Podcast Index result whose feed does not match is rejected", async () => {
+    const response = await clipEndpoint(
+        params("f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml&eg=missing"),
+        { fetchImpl: piFetchFor(piEpisode({ feedUrl: "https://other.example.com/feed.xml" }), impl), env: piEnv });
+    assert.equal(response.status, 404);
+});

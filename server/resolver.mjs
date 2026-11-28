@@ -6,8 +6,11 @@
 // at most three redirects with each hop re-checked, a byte cap, a timeout, and a parser that cannot be
 // talked into expanding an entity.
 
+import { episodeByGuidEndpoint } from "./podcastindex.mjs";
+
 const FEED_MAX_BYTES = 8_000_000;
 const FEED_TIMEOUT_MS = 8_000;
+const PI_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 const QUERY_MAX_BYTES = 2048;          // the same bound Android applies
 
@@ -218,7 +221,7 @@ export function matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claime
  * last resort. A claimed podcast guid (`pg`) must match, because the right episode number in the wrong
  * podcast is still the wrong episode.
  */
-export async function resolveEpisode(searchParams, { fetchImpl = safeFetch } = {}) {
+export async function resolveEpisode(searchParams, { fetchImpl = safeFetch, env = {} } = {}) {
     if (!queryUsable(searchParams)) return null;
 
     const audio = searchParams.get("audio");
@@ -247,8 +250,39 @@ export async function resolveEpisode(searchParams, { fetchImpl = safeFetch } = {
         const answer = await fetchImpl(feed);
         parsed = parseFeed(answer.body);
         finalUrl = answer.finalUrl;
-    } catch {
+    } catch (error) {
+        if (error?.code === "too_large" && guid) {
+            const fromIndex = await resolveByPodcastIndex(guid, feed, { env, fetchImpl });
+            if (fromIndex) return fromIndex;
+        }
         return null;
     }
-    return matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast });
+    const match = matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast });
+    if (match) return match;
+    if (guid) {
+        const fromIndex = await resolveByPodcastIndex(guid, feed, { env, fetchImpl });
+        if (fromIndex) return fromIndex;
+    }
+    return null;
+}
+
+async function resolveByPodcastIndex(guid, requestedFeed, { env, fetchImpl }) {
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return null;
+    const response = await episodeByGuidEndpoint(new URLSearchParams({ guid }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const mapped = payload?.episode;
+    if (!mapped) return null;
+    // Reject a result whose feed does not match the requested feed, so a GUID collision cannot
+    // swap in an episode from a different show.
+    if (mapped.feedUrl && mapped.feedUrl !== requestedFeed) return null;
+    return {
+        title: mapped.title || null,
+        podcast: mapped.feedTitle || null,
+        artwork: mapped.artwork || null,
+        audio: mapped.audioUrl || null,
+        summary: mapped.description || null,
+        episodeNumber: mapped.episodeNumber || null,
+        feed: mapped.feedUrl || null,
+    };
 }
