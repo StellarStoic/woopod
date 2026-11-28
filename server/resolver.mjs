@@ -6,11 +6,10 @@
 // at most three redirects with each hop re-checked, a byte cap, a timeout, and a parser that cannot be
 // talked into expanding an entity.
 
-import { episodeByGuidEndpoint } from "./podcastindex.mjs";
+import { episodeByGuidEndpoint, PI_TIMEOUT_MS } from "./podcastindex.mjs";
 
 const FEED_MAX_BYTES = 8_000_000;
 const FEED_TIMEOUT_MS = 8_000;
-const PI_TIMEOUT_MS = 8_000;
 const MAX_REDIRECTS = 3;
 const QUERY_MAX_BYTES = 2048;          // the same bound Android applies
 

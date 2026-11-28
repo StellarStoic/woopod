@@ -20,12 +20,11 @@
 // three redirects with each hop revalidated, a byte cap, a timeout, and no entity expansion.
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
-import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint } from "./podcastindex.mjs";
+import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint, PI_TIMEOUT_MS } from "./podcastindex.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
 const TEXT_LIMIT = 600;
-const PI_TIMEOUT_MS = 8_000;
 
 const SITE_ORIGIN = "https://woopod.com";
 
