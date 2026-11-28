@@ -251,7 +251,7 @@ export async function resolveEpisode(searchParams, { fetchImpl = safeFetch, env 
         finalUrl = answer.finalUrl;
     } catch (error) {
         if (error?.code === "too_large" && guid) {
-            const fromIndex = await resolveByPodcastIndex(guid, feed, { env, fetchImpl });
+            const fromIndex = await resolveByPodcastIndex(guid, feed, { env });
             if (fromIndex) return fromIndex;
         }
         return null;
@@ -259,19 +259,21 @@ export async function resolveEpisode(searchParams, { fetchImpl = safeFetch, env 
     const match = matchEpisode(parsed, finalUrl, { guid, atomId, enclosure, claimedPodcast });
     if (match) return match;
     if (guid) {
-        const fromIndex = await resolveByPodcastIndex(guid, feed, { env, fetchImpl });
+        const fromIndex = await resolveByPodcastIndex(guid, feed, { env });
         if (fromIndex) return fromIndex;
     }
     return null;
 }
 
-async function resolveByPodcastIndex(guid, requestedFeed, { env, fetchImpl }) {
+async function resolveByPodcastIndex(guid, requestedFeed, { env }) {
     if (!env.PI_API_KEY || !env.PI_API_SECRET) return null;
-    let response = await episodeByGuidEndpoint(new URLSearchParams({ guid }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    // Podcast Index expects a fetch that returns a Web Platform Response; safeFetch (the feed fetcher)
+    // returns { body, finalUrl } and must not be reused here.
+    let response = await episodeByGuidEndpoint(new URLSearchParams({ guid }), { env, timeoutMs: PI_TIMEOUT_MS });
     if (!response.ok && requestedFeed) {
-        const feedId = await feedIdByUrl(requestedFeed, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+        const feedId = await feedIdByUrl(requestedFeed, { env, timeoutMs: PI_TIMEOUT_MS });
         if (feedId) {
-            const retry = await episodeByGuidEndpoint(new URLSearchParams({ guid, feedid: String(feedId) }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+            const retry = await episodeByGuidEndpoint(new URLSearchParams({ guid, feedid: String(feedId) }), { env, timeoutMs: PI_TIMEOUT_MS });
             if (retry.ok) response = retry;
         }
     }

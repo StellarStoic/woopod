@@ -233,24 +233,34 @@ test("publisher identities preserve spaces and XML character references", async 
 test("an oversized feed falls back to Podcast Index for the share card", async () => {
     const piEnv = { PI_API_KEY: "key", PI_API_SECRET: "secret" };
     const tooLarge = async () => { throw Object.assign(new Error("too big"), { code: "too_large" }); };
-    const piFetch = async address => {
-        assert.ok(address.startsWith("https://api.podcastindex.org/api/1.0/episodes/byguid"), address);
-        return Response.json({ episode: {
-            title: "Fallback Episode",
-            feedTitle: "Fallback Show",
-            feedUrl: "https://feeds.example.com/feed.xml",
-            enclosureUrl: "https://cdn.example.com/fallback.mp3",
-            feedImage: "https://cdn.example.com/fallback.jpg",
-        }});
-    };
-    const fetchImpl = address => address.startsWith("https://api.podcastindex.org/")
-        ? piFetch(address)
-        : tooLarge(address);
-    const episode = await resolveEpisode(
-        new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml&eg=ep-42"),
-        { fetchImpl, env: piEnv });
-    assert.equal(episode.title, "Fallback Episode");
-    assert.equal(episode.podcast, "Fallback Show");
-    assert.equal(episode.audio, "https://cdn.example.com/fallback.mp3");
-    assert.equal(episode.artwork, "https://cdn.example.com/fallback.jpg");
+    const previousFetch = globalThis.fetch;
+    try {
+        globalThis.fetch = async address => {
+            if (address.startsWith("https://api.podcastindex.org/api/1.0/episodes/byguid")) {
+                if (!address.includes("feedid=")) {
+                    return new Response(JSON.stringify({ error: { code: "provider_rejected", message: "need feedid" } }), { status: 502 });
+                }
+                return Response.json({ episode: {
+                    title: "Fallback Episode",
+                    feedTitle: "Fallback Show",
+                    feedUrl: "https://feeds.example.com/feed.xml",
+                    enclosureUrl: "https://cdn.example.com/fallback.mp3",
+                    feedImage: "https://cdn.example.com/fallback.jpg",
+                }});
+            }
+            if (address.includes("/podcasts/byfeedurl")) {
+                return Response.json({ feed: { id: 12345 } });
+            }
+            return tooLarge(address);
+        };
+        const episode = await resolveEpisode(
+            new URLSearchParams("f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml&eg=ep-42"),
+            { fetchImpl: tooLarge, env: piEnv });
+        assert.equal(episode.title, "Fallback Episode");
+        assert.equal(episode.podcast, "Fallback Show");
+        assert.equal(episode.audio, "https://cdn.example.com/fallback.mp3");
+        assert.equal(episode.artwork, "https://cdn.example.com/fallback.jpg");
+    } finally {
+        globalThis.fetch = previousFetch;
+    }
 });
