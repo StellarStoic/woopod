@@ -320,6 +320,25 @@ export async function feedIdByUrl(feedUrl, options = {}) {
 }
 
 /**
+ * Answer a call to `/podcasts/byfeedurl` with the show object `shareMetadata()` needs.
+ *
+ * This is a card-only fallback: the show page still refuses to build an episode list from an oversized
+ * feed, but a social scraper can still get the publisher's title, description and artwork.
+ */
+export async function showByFeedUrlEndpoint(feedUrl, options = {}) {
+    const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS } = options;
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return null;
+    const address = publicAddress(feedUrl);
+    if (!address) return null;
+    const result = await callProvider('/api/1.0/podcasts/byfeedurl', { query: address, limit: null, param: 'url' },
+        { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
+    if (!result.ok) return null;
+    const show = mapShow(result.payload?.feed);
+    if (!show || !show.feedUrl) return null;
+    return { title: show.title, description: show.description, artwork: show.artwork };
+}
+
+/**
  * Answer `GET /api/v1/pi/episode?guid=…&feedid=…` — a single episode by its GUID.
  *
  * This is used as a fallback when a publisher feed is too large to fetch and parse in the Worker.

@@ -264,3 +264,30 @@ test("an oversized feed falls back to Podcast Index for the share card", async (
         globalThis.fetch = previousFetch;
     }
 });
+
+test("an oversized show feed still gets a real card from Podcast Index", async () => {
+    const piEnv = { PI_API_KEY: "key", PI_API_SECRET: "secret" };
+    const previousFetch = globalThis.fetch;
+    const pageHtml = readFileSync(new URL("../show/index.html", import.meta.url), "utf8");
+    try {
+        globalThis.fetch = async address => {
+            if (address.includes("/podcasts/byfeedurl")) {
+                return Response.json({ feed: {
+                    title: "Fallback Show",
+                    description: "A show from the index",
+                    artwork: "https://cdn.example.com/show.jpg",
+                    url: "https://feeds.example.com/feed.xml",
+                }});
+            }
+            return new Response("x".repeat(9_000_000), { status: 200, headers: { "content-type": "application/rss+xml" } });
+        };
+        const { response, body } = await preview(
+            "/show?f=https%3A%2F%2Ffeeds.example.com%2Ffeed.xml",
+            { html: pageHtml, env: piEnv });
+        assert.equal(response.headers.get("x-woopod-preview"), "resolved");
+        assert.equal(metaContent(body, "og:title"), "Fallback Show");
+        assert.equal(metaContent(body, "og:image"), "https://cdn.example.com/show.jpg");
+    } finally {
+        globalThis.fetch = previousFetch;
+    }
+});

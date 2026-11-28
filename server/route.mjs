@@ -8,6 +8,7 @@
 
 import { renderShareMetadata, shareMetadata } from "../player/share-metadata.mjs";
 import { handleApi, showEndpoint } from "./api.mjs";
+import { showByFeedUrlEndpoint } from "./podcastindex.mjs";
 import { resolveEpisode } from "./resolver.mjs";
 
 const CACHE_SECONDS = 300;
@@ -72,7 +73,12 @@ export async function handle(request, { getPage, env = {}, resolveShow = showEnd
             resolved = null;
         } else if (kind === "show") {
             const show = await resolveShow(url.searchParams);
-            if (show.ok) resolved = await show.json();
+            if (show.ok) {
+                resolved = await show.json();
+            } else {
+                const feed = url.searchParams.get("f");
+                if (feed) resolved = await showByFeedUrlEndpoint(feed, { env });
+            }
         } else resolved = await resolveEpisode(url.searchParams, { env });
         body = renderShareMetadata(html, shareMetadata(url.toString(), resolved));
     } catch {
