@@ -225,13 +225,14 @@ export function providerFailure(status, aborted) {
     return { category: "provider_error", status: 502, message: "The podcast index answered unexpectedly." };
 }
 
-async function callProvider(path, { query, limit }, { apiKey, apiSecret, fetchImpl, now, timeoutMs, debug = false }) {
+async function callProvider(path, { query, limit, param = null, params = null }, { apiKey, apiSecret, fetchImpl, now, timeoutMs, debug = false }) {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
         const address = new URL(`${PI_ORIGIN}${path}`);
-        if (query != null) address.searchParams.set(path.endsWith('/trending') ? 'cat' : path.endsWith('/byguid') ? 'guid' : 'q', query);
+        if (query != null) address.searchParams.set(param || (path.endsWith('/trending') ? 'cat' : path.endsWith('/byguid') ? 'guid' : 'q'), query);
         if (limit != null) address.searchParams.set("max", String(limit));
+        for (const [key, value] of Object.entries(params || {})) if (value != null) address.searchParams.set(key, String(value));
         const response = await fetchImpl(address.toString(), {
             method: "GET",
             headers: await authHeaders(apiKey, apiSecret, now / 1000),
@@ -300,20 +301,43 @@ export async function guidEndpoint(searchParams, options = {}) {
 }
 
 /**
- * Answer `GET /api/v1/pi/episode?guid=…` — a single episode by its GUID.
+ * The index's numeric id for a publisher feed URL.
+ *
+ * Needed because `/episodes/byguid` is answered only when the guid comes with its feed id, and a shared
+ * link carries the feed URL, not the id. Returns null for anything the provider does not know — a caller
+ * then keeps whatever answer it already had.
+ */
+export async function feedIdByUrl(feedUrl, options = {}) {
+    const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS } = options;
+    if (!env.PI_API_KEY || !env.PI_API_SECRET) return null;
+    const address = publicAddress(feedUrl);
+    if (!address) return null;
+    const result = await callProvider('/api/1.0/podcasts/byfeedurl', { query: address, limit: null, param: 'url' },
+        { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
+    if (!result.ok) return null;
+    const id = Number(result.payload?.feed?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/**
+ * Answer `GET /api/v1/pi/episode?guid=…&feedid=…` — a single episode by its GUID.
  *
  * This is used as a fallback when a publisher feed is too large to fetch and parse in the Worker.
  */
 export async function episodeByGuidEndpoint(searchParams, options = {}) {
     const { env = {}, fetchImpl = (...args) => fetch(...args), now = Date.now(), timeoutMs = PI_TIMEOUT_MS, rateKey = null } = options;
     const guid = searchParams.get('guid') || '';
+    const feedid = searchParams.get('feedid') || '';
     if (!guid) return piJson({ error: { code: 'guid_missing', message: 'An episode GUID is required.' } }, 400);
+    // The provider wants the feed id beside the guid: a guid alone is answered with a rejection, which
+    // used to travel back as a bare 502 with nothing to act on.
+    const params = /^\d+$/.test(feedid) ? { feedid } : {};
     if (!env.PI_API_KEY || !env.PI_API_SECRET) return piJson({ error: { code: 'not_configured', message: 'Podcast Index is not configured.' } }, 503);
     if (rateKey) {
         const verdict = rateLimit(rateKey, { now });
         if (!verdict.allowed) return piJson({ error: { code: 'rate_limited', message: 'Try again shortly.' } }, 429, { 'retry-after': String(verdict.retryAfter) });
     }
-    const result = await callProvider('/api/1.0/episodes/byguid', { query: guid, limit: null },
+    const result = await callProvider('/api/1.0/episodes/byguid', { query: guid, limit: null, params },
         { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
     if (!result.ok) return piJson({ error: pickError(result), provider: 'podcastindex' }, result.status || 502);
     const episode = result.payload.episode || (Array.isArray(result.payload.episodes) ? result.payload.episodes[0] : null);

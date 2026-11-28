@@ -20,7 +20,7 @@
 // three redirects with each hop revalidated, a byte cap, a timeout, and no entity expansion.
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
-import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint, PI_TIMEOUT_MS } from "./podcastindex.mjs";
+import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint, feedIdByUrl, PI_TIMEOUT_MS } from "./podcastindex.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
@@ -216,7 +216,18 @@ export async function clipEndpoint(searchParams, { fetchImpl, env = {} } = {}) {
 }
 
 async function episodeByGuid(searchParams, requestedFeed, { env, fetchImpl }) {
-    const response = await episodeByGuidEndpoint(searchParams, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    let response = await episodeByGuidEndpoint(searchParams, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    // the provider wants the feed id beside the guid; a shared link carries the feed URL instead, so ask
+    // for the id once and try again rather than reporting a rejection the reader cannot act on
+    if (!response.ok && requestedFeed && !searchParams.get("feedid")) {
+        const feedId = await feedIdByUrl(requestedFeed, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+        if (feedId) {
+            const withId = new URLSearchParams(searchParams);
+            withId.set("feedid", String(feedId));
+            const retry = await episodeByGuidEndpoint(withId, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+            if (retry.ok) response = retry;
+        }
+    }
     if (!response.ok) return null;
     const payload = await response.json().catch(() => null);
     const mapped = payload?.episode;

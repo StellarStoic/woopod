@@ -6,7 +6,7 @@
 // at most three redirects with each hop re-checked, a byte cap, a timeout, and a parser that cannot be
 // talked into expanding an entity.
 
-import { episodeByGuidEndpoint, PI_TIMEOUT_MS } from "./podcastindex.mjs";
+import { episodeByGuidEndpoint, feedIdByUrl, PI_TIMEOUT_MS } from "./podcastindex.mjs";
 
 const FEED_MAX_BYTES = 8_000_000;
 const FEED_TIMEOUT_MS = 8_000;
@@ -267,7 +267,14 @@ export async function resolveEpisode(searchParams, { fetchImpl = safeFetch, env 
 
 async function resolveByPodcastIndex(guid, requestedFeed, { env, fetchImpl }) {
     if (!env.PI_API_KEY || !env.PI_API_SECRET) return null;
-    const response = await episodeByGuidEndpoint(new URLSearchParams({ guid }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    let response = await episodeByGuidEndpoint(new URLSearchParams({ guid }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+    if (!response.ok && requestedFeed) {
+        const feedId = await feedIdByUrl(requestedFeed, { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+        if (feedId) {
+            const retry = await episodeByGuidEndpoint(new URLSearchParams({ guid, feedid: String(feedId) }), { env, fetchImpl, timeoutMs: PI_TIMEOUT_MS });
+            if (retry.ok) response = retry;
+        }
+    }
     if (!response.ok) return null;
     const payload = await response.json().catch(() => null);
     const mapped = payload?.episode;

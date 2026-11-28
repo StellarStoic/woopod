@@ -8,6 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { handleApi } from "../server/api.mjs";
+import { episodeByGuidEndpoint, feedIdByUrl } from "../server/podcastindex.mjs";
 
 const ENV = { PI_API_KEY: "test-key-not-a-real-one", PI_API_SECRET: "test-secret-not-a-real-one" };
 const GUID = "4ee0937d-a97b-414c-a067-221e573226ca";
@@ -87,4 +88,41 @@ test("the other pi routes still dispatch to their own handlers", async () => {
     // an address that is not one of ours is still left alone
     assert.equal(await handleApi(new Request("https://woopod.com/api/v1/pi/unknown")), null);
     assert.equal(await handleApi(new Request("https://woopod.com/api/v1/pie")), null);
+});
+
+test("the provider wants the feed id beside the guid, so this asks for it", async () => {
+    // what the real provider does: a guid alone is a rejection, the pair is an answer
+    const calls = [];
+    const impl = async url => {
+        calls.push(String(url));
+        const address = new URL(String(url));
+        if (address.pathname.endsWith("/podcasts/byfeedurl")) {
+            assert.equal(address.searchParams.get("url"), "https://example.com/feed.xml");
+            return new Response(JSON.stringify({ feed: { id: 920666 } }), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        if (address.pathname.endsWith("/episodes/byguid")) {
+            if (address.searchParams.get("feedid") !== "920666") {
+                return new Response(JSON.stringify({ status: "false", error: "feedid required" }), { status: 400 });
+            }
+            assert.equal(address.searchParams.get("guid"), GUID);
+            return new Response(JSON.stringify(PI_EPISODE), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        return new Response("{}", { status: 404 });
+    };
+
+    const feedId = await feedIdByUrl("https://example.com/feed.xml", { env: ENV, fetchImpl: impl });
+    assert.equal(feedId, 920666);
+
+    const alone = await episodeByGuidEndpoint(new URLSearchParams({ guid: GUID }), { env: ENV, fetchImpl: impl });
+    assert.equal(alone.status, 502, "a guid alone is the provider's rejection, reported as a provider failure");
+
+    const paired = await episodeByGuidEndpoint(new URLSearchParams({ guid: GUID, feedid: String(feedId) }), { env: ENV, fetchImpl: impl });
+    assert.equal(paired.status, 200);
+    assert.equal((await paired.json()).episode.guid, GUID);
+
+    // a feed the provider does not know, and a refusal that must not become an id
+    const unknown = await feedIdByUrl("https://example.com/nothing.xml", { env: ENV, fetchImpl: async () => new Response("{}", { status: 404 }) });
+    assert.equal(unknown, null);
+    assert.equal(await feedIdByUrl("http://insecure.example.com/f.xml", { env: ENV, fetchImpl: impl }), null, "publicAddress still applies");
+    assert.equal(await feedIdByUrl("https://example.com/feed.xml", { env: {}, fetchImpl: impl }), null, "no credentials, no call");
 });
