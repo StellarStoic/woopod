@@ -367,7 +367,9 @@ export async function episodeByGuidEndpoint(searchParams, options = {}) {
     const episode = result.payload.episode || (Array.isArray(result.payload.episodes) ? result.payload.episodes[0] : null);
     if (!episode) return piJson({ error: { code: 'not_found', message: 'Episode not found.' }, provider: 'podcastindex' }, 404);
     const mapped = mapEpisode(episode);
-    if (!mapped) return piJson({ error: { code: 'provider_error', message: 'Unexpected response from Podcast Index.' }, provider: 'podcastindex' }, 502);
+    // mapEpisode refuses an episode with no title, which is exactly what the index sends for a guid it
+    // does not have — so this is a not-found, not a broken provider response
+    if (!mapped) return piJson({ error: { code: 'not_found', message: 'Episode not found.' }, provider: 'podcastindex' }, 404);
     return piJson({ provider: 'podcastindex', episode: mapped });
 }
 

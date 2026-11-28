@@ -136,3 +136,12 @@ test("a guid the index does not know is not_found, not an unexpected response", 
     assert.equal(response.status, 404);
     assert.equal((await response.json()).error.code, "not_found");
 });
+
+test("an empty episode object is not_found too — the provider's other shape for a guid it lacks", async () => {
+    const impl = async () => new Response(JSON.stringify({ status: "true", count: 0, episode: {} }),
+        { status: 200, headers: { "content-type": "application/json" } });
+    const response = await handleApi(new Request(`https://woopod.com/api/v1/pi/episode?guid=${GUID}&feedid=454880`),
+        { env: ENV, fetchImpl: impl });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, "not_found");
+});
