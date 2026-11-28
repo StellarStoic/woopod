@@ -40,6 +40,17 @@ export function parseLink(search, mode) {
       comment: mode === 'clip' ? 'Leave a little room in your day for a voice that makes you think.' : '' };
   }
   const result = { mode, start: 0, end: null, comment: decodeComment(q.get('c')) };
+  if (mode === 'radio') {
+    // A live station: one stream, an optional name and an optional homepage. No feed, no bounds and no
+    // clip conversation — a stream has no length to select inside and nothing to resolve.
+    if (!q.has('audio')) throw new Error('This radio link is missing its stream.');
+    if (q.has('f') || q.has('s') || q.has('e')) throw new Error('A radio link carries only the stream, a name and a homepage.');
+    result.audio = publicUrl(q.get('audio'));
+    result.title = (q.get('title') || 'Radio').slice(0, 200);
+    result.homepage = q.has('homepage') ? publicUrl(q.get('homepage')) : '';
+    result.query = q;
+    return result;
+  }
   if (mode === 'clip') {
     result.start = seconds(q.get('s')); result.end = seconds(q.get('e'));
     if (result.end <= result.start) throw new Error('The clip must end after it starts.');

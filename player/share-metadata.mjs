@@ -30,17 +30,23 @@ function timestamp(value) {
 }
 export function shareMetadata(requestUrl, episode = null) {
   const u = new URL(requestUrl, ORIGIN);
-  const mode = /^\/c\/?$/.test(u.pathname) ? 'clip' : /^\/show\/?$/.test(u.pathname) ? 'show' : 'episode';
-  const path = mode === 'clip' ? '/c' : mode === 'show' ? '/show' : '/p';
+  // /r is a live radio station: no feed, no episode, no resolver — the query is the whole story
+  const mode = /^\/c\/?$/.test(u.pathname) ? 'clip' : /^\/show\/?$/.test(u.pathname) ? 'show' : /^\/r\/?$/.test(u.pathname) ? 'radio' : 'episode';
+  // radio keeps its trailing slash: the app emits /r/?… and the canonical card must not renounce it
+  const path = mode === 'clip' ? '/c' : mode === 'show' ? '/show' : mode === 'radio' ? '/r/' : '/p';
   const validQuery = new TextEncoder().encode(u.search.slice(1)).length <= 2048 && [...u.searchParams.keys()].every(k => u.searchParams.getAll(k).length === 1);
   const q = validQuery ? u.searchParams : new URLSearchParams();
   const title = limit(clean(episode?.title || (q.has('audio') ? q.get('title') : '')), 150);
   const podcast = limit(clean(episode?.podcast || (q.has('audio') ? q.get('podcast') : '')), 100);
-  const heading = title ? limit([title, podcast].filter(Boolean).join(' · '), 200) : 'A good listen, shared with Woopod';
+  const heading = mode === 'radio'
+    ? (title ? limit(`${title} · Radio`, 200) : 'Live radio, shared with Woopod')
+    : title ? limit([title, podcast].filter(Boolean).join(' · '), 200) : 'A good listen, shared with Woopod';
   const start = timestamp(q.get('s')), end = timestamp(q.get('e'));
   const range = start && end && Number(q.get('e')) > Number(q.get('s')) ? ` · ${start}–${end}` : '';
   const note = mode === 'clip' ? comment(q.get('c')) : '';
-  const description = mode === 'show' ? limit(clean(episode?.description) || 'Discover this podcast on Woopod.', 220) : limit(note ? `“${note}”${range}` : `${mode === 'clip' ? 'Listen to a clip' : 'Listen to this episode'}${podcast ? ` from ${podcast}` : ''} on Woopod${mode === 'clip' ? range : ''}.`, 220);
+  const description = mode === 'radio'
+    ? (title ? limit(`Listen to ${title} live on Woopod.`, 220) : 'Listen to a live radio station on Woopod.')
+    : mode === 'show' ? limit(clean(episode?.description) || 'Discover this podcast on Woopod.', 220) : limit(note ? `“${note}”${range}` : `${mode === 'clip' ? 'Listen to a clip' : 'Listen to this episode'}${podcast ? ` from ${podcast}` : ''} on Woopod${mode === 'clip' ? range : ''}.`, 220);
   return { title: heading, description, image: imageUrl(episode?.artwork), url: ORIGIN + path + (validQuery ? u.search : '') };
 }
 export function renderShareMetadata(html, metadata) {

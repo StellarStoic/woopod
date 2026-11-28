@@ -12,11 +12,12 @@ import { resolveEpisode } from "./resolver.mjs";
 
 const CACHE_SECONDS = 300;
 
-/** "clip", "episode", or null when this address is not one of ours. */
+/** "clip", "episode", "show", "radio" — or null when this address is not one of ours. */
 export function kindOf(pathname) {
     if (/^\/c\/?$/.test(pathname)) return "clip";
     if (/^\/p\/?$/.test(pathname)) return "episode";
     if (/^\/show\/?$/.test(pathname)) return "show";
+    if (/^\/r\/?$/.test(pathname)) return "radio";
     return null;
 }
 
@@ -65,7 +66,11 @@ export async function handle(request, { getPage, env = {}, resolveShow = showEnd
     let body = html;
     let resolved = null;
     try {
-        if (kind === "show") {
+        if (kind === "radio") {
+            // A radio station has nothing to resolve: its stream, name and homepage are in the query.
+            // Calling the resolver here would fetch a URL for metadata that is already in hand.
+            resolved = null;
+        } else if (kind === "show") {
             const show = await resolveShow(url.searchParams);
             if (show.ok) resolved = await show.json();
         } else resolved = await resolveEpisode(url.searchParams);
@@ -81,7 +86,9 @@ export async function handle(request, { getPage, env = {}, resolveShow = showEnd
         headers: {
             "content-type": "text/html; charset=utf-8",
             "cache-control": `public, max-age=${CACHE_SECONDS}`,
-            "x-woopod-preview": resolved ? "resolved" : "fallback",
+            // "resolved" means the tags came from this link: an episode through the resolver, a station
+            // straight from its own query — both are a card built for this address, not the generic one.
+            "x-woopod-preview": resolved || kind === "radio" ? "resolved" : "fallback",
             "x-content-type-options": "nosniff",
         },
     });
@@ -148,7 +155,8 @@ export function worker(env = {}) {
             if (api) return api;
             const kind = kindOf(url.pathname);
             if (!kind) return fetch(request);
-            const pageUrl = new URL(`${kind === "clip" ? "c" : kind === "show" ? "show" : "p"}/index.html`, source).toString();
+            const folder = kind === "clip" ? "c" : kind === "show" ? "show" : kind === "radio" ? "r" : "p";
+            const pageUrl = new URL(`${folder}/index.html`, source).toString();
             const answer = await handle(request, { env, getPage: () => fetchPage(pageUrl) });
             return answer || fetch(request);
         },

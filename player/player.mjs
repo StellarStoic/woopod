@@ -36,6 +36,7 @@ retry.id = 'retry'; retry.className = 'retry'; retry.hidden = true; retry.textCo
 $('status').after(retry);
 retry.addEventListener('click', () => location.reload());
 
+async function startEpisode() {
 try {
   request = parseLink(page.search, mode);
   $('format').textContent = mode === 'clip' ? 'SHARED CLIP' : 'FULL EPISODE';
@@ -124,8 +125,64 @@ try {
 } catch (e) {
   showError(e.name === 'TimeoutError' ? 'Finding this episode timed out. Try the original feed below.' : e.message);
 }
+}
 
-$('play').addEventListener('click', () => { if (controller) audio.paused ? controller.play() : audio.pause(); });
+/**
+ * A live radio stream, which is an episode player with the length taken out.
+ *
+ * `initialize()` above waits for a finite `audio.duration` before it enables anything, and a live stream
+ * reports `Infinity` — so the episode path would sit on "Loading the episode length…" and then declare a
+ * failure. Radio therefore never waits for a length: play is live from the first frame, and the controls
+ * that only make sense inside a recording (seek, timeline, restart, ±15/30, speed, "whole episode") are
+ * removed rather than disabled, because a disabled button still reads as an error.
+ */
+function startRadio() {
+  try {
+    request = parseLink(page.search, mode);
+  } catch (e) {
+    showError(e.message);
+    return;
+  }
+  $('format').textContent = 'LIVE RADIO';
+  $('playback-note').textContent = 'A live stream. Playback joins the station where it is now, and nothing is posted while you listen.';
+  $('range-label').textContent = 'LIVE';
+  $('episode-title').textContent = request.title;
+  $('podcast-name').textContent = 'Radio';
+  $('episode-meta').textContent = 'Live stream · press play to listen';
+  document.title = `${request.title} · woopod`;
+  showLink('publisher', request.homepage);
+  // the episode controls have no meaning on a stream that is being broadcast right now
+  for (const id of ['restart', 'back', 'forward', 'seek']) $(id).hidden = true;
+  $('timeline').hidden = true;
+  $('current').hidden = true;
+  $('remaining').hidden = true;
+  $('whole').hidden = true;
+  $('open-conversation').hidden = true;
+  document.querySelector('.speed-control').hidden = true;
+  document.querySelector('.times').hidden = true;
+  $('play').disabled = false;
+  status('Press play to listen live.');
+  audio.preload = 'none';
+  audio.src = request.audio;
+  audio.addEventListener('playing', () => { status('Listening live.'); renderRadio(); });
+  audio.addEventListener('pause', () => status('Paused. The station plays live, so you rejoin where it is now.'));
+  audio.addEventListener('waiting', () => { if (!audio.paused) status('Buffering…'); });
+  audio.addEventListener('error', () => showError('This stream could not load. The station may be offline, or this browser may not support its format.'));
+  $('share').disabled = false;
+  renderRadio();
+}
+function renderRadio() {
+  icon('play', audio.paused ? 'play' : 'pause');
+  $('play').setAttribute('aria-label', audio.paused ? 'Play' : 'Pause');
+}
+
+if (mode === 'radio') startRadio(); else startEpisode();
+
+$('play').addEventListener('click', () => {
+  // radio has no BoundedPlayback to lean on: the stream is played and paused directly
+  if (controller) audio.paused ? controller.play() : audio.pause();
+  else if (mode === 'radio') { if (audio.paused) audio.play().then(renderRadio).catch(() => status('The browser refused to start the stream. Press play again, or open the stream directly.', true)); else { audio.pause(); renderRadio(); } }
+});
 $('restart').addEventListener('click', () => { if (controller) { controller.seek(controller.start); controller.play(); } });
 $('back').addEventListener('click', () => controller?.seek(audio.currentTime - 15));
 $('forward').addEventListener('click', () => controller?.seek(audio.currentTime + 30));
