@@ -1,5 +1,6 @@
 import { mountConversation } from './conversation.mjs';
 import { parseLink, publicUrl, radioUrl, bounds, timecode, BoundedPlayback, resolverError } from './core.mjs';
+import { addHistory, setupLikeButton, mountLibraryModal } from './library.mjs';
 
 const $ = id => document.getElementById(id);
 const audio = $('audio');
@@ -83,7 +84,12 @@ try {
   if (metadata.artwork) {
     try { $('cover').src = publicUrl(metadata.artwork); $('cover').referrerPolicy = 'no-referrer'; $('cover').hidden = false; $('cover').onerror = () => { $('cover').hidden = true; }; } catch { /* Keep branded fallback. */ }
   }
-  if (!request.demo) showLink('publisher', metadata.audio);
+  if (!request.demo) {
+    showLink('publisher', metadata.audio);
+    const item = { url: location.href, title: metadata.title, podcast: metadata.podcast, mode, artwork: metadata.artwork || '', feed: request.feed || '' };
+    addHistory(item);
+    setupLikeButton(item);
+  }
   status('Loading the episode length…');
   durationTimer = setTimeout(() => showError('The audio is taking too long to load. Try again, or open the publisher audio.'), 22000);
   const initialize = () => {
@@ -96,7 +102,7 @@ try {
       audio.currentTime = selected.start;
       $('seek').min = String(selected.start); $('seek').max = String(selected.end);
       $('range-label').textContent = mode === 'clip' ? `${timecode(selected.start)} — ${timecode(selected.end)}` : timecode(selected.end);
-      for (const id of ['play', 'restart', 'back', 'forward', 'seek', 'share']) $(id).disabled = false;
+      for (const id of ['play', 'restart', 'back', 'forward', 'seek']) $(id).disabled = false;
       status(request.demo ? 'Original sound sample.' : 'Ready when you are.');
       renderPosition();
     } catch (e) { showError(e.message); }
@@ -118,7 +124,7 @@ try {
     return shared.href;
   }, onClipRoot: root => {
     const updated = new URL(location.href); updated.searchParams.set('n', root);
-    if(new TextEncoder().encode(updated.search.slice(1)).length > 2048) { status('Your public clip was posted, but this note makes the conversation link too long. Shorten the note before sharing.', true); $('share').disabled=true; return; }
+    if(new TextEncoder().encode(updated.search.slice(1)).length > 2048) { status('Your public clip was posted, but this note makes the conversation link too long. Shorten the note before sharing.', true); return; }
     history.replaceState(null, '', updated); request.clipRoot = root;
   }});
   $('open-conversation').disabled = false;
@@ -151,6 +157,9 @@ function startRadio() {
   $('episode-meta').textContent = 'Live stream · press play to listen';
   document.title = `${request.title} · woopod`;
   showLink('publisher', request.homepage, radioUrl);
+  const item = { url: location.href, title: request.title, podcast: 'Radio', mode, homepage: request.homepage || '' };
+  addHistory(item);
+  setupLikeButton(item);
   // the episode controls have no meaning on a stream that is being broadcast right now
   for (const id of ['restart', 'back', 'forward', 'seek']) $(id).hidden = true;
   $('timeline').hidden = true;
@@ -168,7 +177,6 @@ function startRadio() {
   audio.addEventListener('pause', () => status('Paused. The station plays live, so you rejoin where it is now.'));
   audio.addEventListener('waiting', () => { if (!audio.paused) status('Buffering…'); });
   audio.addEventListener('error', () => showError('This stream could not load. The station may be offline, or this browser may not support its format.'));
-  $('share').disabled = false;
   renderRadio();
 }
 function renderRadio() {
@@ -189,16 +197,9 @@ $('forward').addEventListener('click', () => controller?.seek(audio.currentTime 
 $('seek').addEventListener('input', () => controller?.seek(Number($('seek').value)));
 $('speed').addEventListener('input', () => { audio.playbackRate = Number($('speed').value); $('speed-value').textContent = `${Number($('speed').value)}×`; });
 $('volume').addEventListener('input', () => { audio.volume = Number($('volume').value); $('volume-value').textContent = `${Math.round(audio.volume * 100)}%`; });
-$('share').addEventListener('click', async () => {
-  const url = new URL(location.href);
-  if (request.demo) url.search = '?demo=1';
-  try {
-    if (navigator.share) await navigator.share({ title: document.title, url: url.href });
-    else { await navigator.clipboard.writeText(url.href); status('Link copied.'); }
-  } catch (e) { if (e.name !== 'AbortError') status('Copy the address from your browser to share this listen.'); }
-});
 document.addEventListener('click', e => { const settings = document.querySelector('.settings'); if (!settings.contains(e.target)) settings.open = false; });
 window.addEventListener('pagehide', () => { controller?.dispose(); clearTimeout(durationTimer); });
+mountLibraryModal();
 
 // Fit episode titles; long notes scroll independently at a readable font size.
 function fitCopy() {

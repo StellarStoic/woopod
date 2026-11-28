@@ -1,4 +1,5 @@
 import { publicUrl, resolverError } from '../player/core.mjs';
+import { addHistory, setupLikeButton, mountLibraryModal } from '../player/library.mjs';
 const $ = id => document.getElementById(id);
 const url = new URL(location.href);
 let feed, nextOffset = null, loaded = 0, expectedTotal = null;
@@ -57,6 +58,11 @@ async function load(offset = 0) {
     const show = await response.json();
     if (!show || typeof show.title !== 'string' || !Array.isArray(show.episodes)) throw new Error('The podcast details are incomplete.');
     render(show, offset > 0);
+    if (offset === 0) {
+      const item = { url: location.href, title: show.title, podcast: 'Podcast', mode: 'show', artwork: show.artwork || '', feed };
+      addHistory(item);
+      setupLikeButton(item);
+    }
   } catch (e) {
     $('status').textContent = e.name === 'TimeoutError' ? 'The podcast took too long to load.' : e.message;
     $('retry').hidden = !feed;
@@ -64,9 +70,5 @@ async function load(offset = 0) {
 }
 $('retry').addEventListener('click', () => load(0));
 $('more').addEventListener('click', async () => { if (nextOffset === null) return; $('more').disabled = true; try { await load(nextOffset); } finally { $('more').disabled = false; } });
-$('share').addEventListener('click', async () => {
-  const target = new URL(location.href); target.protocol = 'https:'; target.host = 'woopod.com'; target.pathname = '/show';
-  try { if (navigator.share) await navigator.share({title:document.title,url:target.href}); else { await navigator.clipboard.writeText(target.href); $('status').textContent = 'Link copied.'; } }
-  catch (e) { if (e.name !== 'AbortError') $('status').textContent = 'Copy the address from your browser to share.'; }
-});
+mountLibraryModal();
 load();

@@ -23,14 +23,19 @@
   <symbol id="icon-back" viewBox="0 0 24 24"><path d="M9 5 3 10l6 5M3 10h10a7 7 0 0 1 0 14" transform="translate(1 -3)"/><text x="10" y="17" stroke="none" fill="currentColor" font-size="9" font-family="sans-serif">15</text></symbol>
   <symbol id="icon-forward" viewBox="0 0 24 24"><path d="m15 5 6 5-6 5m6-5H11a7 7 0 0 0 0 14" transform="translate(-1 -3)"/><text x="4" y="17" stroke="none" fill="currentColor" font-size="9" font-family="sans-serif">30</text></symbol>
   <symbol id="icon-restart" viewBox="0 0 24 24"><path d="M5 8a8 8 0 1 1-1 8M5 3v5h5"/></symbol>
-  <symbol id="icon-share" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M18,16A3,3 0,0 0,15.6 17.2L8.9,13.8A3.4,3.4 0,0 0,9 12.8L15.6,9.4A3,3 0,1 0,14.7 7.6L8.1,11A3,3 0,1 0,8.1 14.8L14.7,18.2A3,3 0,1 0,18 16Z"/></symbol>
+  <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="icon-heart-filled" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
   <symbol id="icon-chat" viewBox="0 0 24 24"><path d="M4 4h16v13H8l-4 4Z"/><path d="M8 9h8m-8 4h5"/></symbol>
   <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
 </svg>
 <header class="site-header">
   <a class="brand" href="../"><img src="../assets/woopod-mark.png" alt="" width="44" height="34"><span>woopod</span></a>
-  <a class="header-link" href="../#experience">Made for listening <span aria-hidden="true">↗</span></a>
+  <div class="header-actions">
+    <button class="header-link" type="button" id="history-open">History</button>
+    <button class="header-link" type="button" id="favorites-open">Favourites</button>
+    <a class="header-link" href="../#experience">Made for listening <span aria-hidden="true">↗</span></a>
+  </div>
 </header>
 <main id="player">
   <div class="above-player"><span class="eyebrow"><i></i> LIVE RADIO, SHARED</span><nav class="demo-switch" aria-label="Preview mode" hidden><a href="../c/?demo=1">Clip</a><a href="../p/?demo=1">Full episode</a></nav></div>
@@ -48,7 +53,7 @@
         <button class="icon-button skip" id="back" aria-label="Back 15 seconds" disabled><svg><use href="#icon-back"/></svg></button>
         <button class="play-button" id="play" aria-label="Play" disabled><svg><use href="#icon-play"/></svg></button>
         <button class="icon-button skip" id="forward" aria-label="Forward 30 seconds" disabled><svg><use href="#icon-forward"/></svg></button>
-        <button class="icon-button secondary" id="share" aria-label="Share this listen" disabled><svg><use href="#icon-share"/></svg></button>
+        <button class="icon-button secondary" id="like" aria-label="Add to favourites" aria-pressed="false" disabled><svg><use href="#icon-heart"/></svg></button>
       </div>
       <div class="timeline" id="timeline"><div class="timeline-rail"><div class="timeline-fill"></div><div class="playhead"></div></div><input id="seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Playback position" disabled></div>
       <div class="times"><output id="current">0:00</output><span id="remaining">—</span></div>
@@ -59,6 +64,11 @@
   </article>
   <section class="quote-section" id="quote-section" aria-label="Clip maker's comment" hidden><span class="quote-mark" aria-hidden="true">“</span><blockquote id="quote"></blockquote><p>A NOTE FROM THE PERSON WHO SHARED THIS</p></section>
   <div class="under-player"><p id="playback-note">Press play to listen live.</p><a id="publisher" target="_blank" rel="noopener noreferrer" hidden>Station homepage ↗</a><a id="feed" target="_blank" rel="noopener noreferrer" hidden>Podcast feed ↗</a></div>
+  <dialog id="library-modal" aria-labelledby="library-title">
+    <div class="library-heading"><h2 id="library-title">History</h2><button type="button" id="close-library" aria-label="Close">×</button></div>
+    <ul id="library-list" class="library-list"></ul>
+    <p id="library-empty" class="library-empty" hidden>Nothing saved yet.</p>
+  </dialog>
   <noscript>This player needs JavaScript. You can still open the station stream from the person who shared it.</noscript>
 </main>
 <footer><a href="../">Less noise. More listening.</a></footer>

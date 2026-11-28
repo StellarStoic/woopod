@@ -172,3 +172,28 @@ blockquote:focus-visible { outline:1px solid #7ce2c060; outline-offset:4px; bord
 .public-comment p { white-space:pre-wrap; overflow-wrap:anywhere; }
 #comment-send { background:#7ce2c01a!important; border:1px solid #7ce2c050!important; border-radius:7px; }
 #reply-target:empty + #cancel-reply { display:none; }
+
+.header-actions { display:flex; align-items:center; gap:16px; }
+.site-header button.header-link { background:none; border:0; padding:0; font:inherit; color:var(--muted); }
+.site-header button.header-link:hover { color:var(--accent); }
+#like { color:var(--ink); }
+#like.liked { color:var(--accent); }
+
+#library-modal { width:min(560px,calc(100vw - 28px)); max-height:80dvh; border:1px solid #ffffff25; border-radius:18px; padding:22px; background:#141b16; color:var(--ink); font-size:13px; }
+#library-modal::backdrop { background:#000a; backdrop-filter:blur(5px); }
+.library-heading { display:flex; justify-content:space-between; align-items:center; gap:15px; margin-bottom:12px; }
+.library-heading h2 { font-size:20px; font-weight:500; margin:0; }
+#close-library { background:none; border:0; color:var(--accent); font-size:24px; line-height:1; cursor:pointer; padding:4px; }
+.library-list { list-style:none; margin:0; padding:0; max-height:55dvh; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.library-empty { color:var(--muted); text-align:center; margin:24px 0; }
+.library-item { display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); }
+.library-item-link { flex:1; min-width:0; padding:12px 0; display:block; color:inherit; }
+.library-item-link:hover { color:var(--accent); }
+.library-item-title { display:block; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.library-item-meta { display:block; font-size:10px; color:var(--muted); margin-top:3px; }
+.library-item-remove { background:none; border:0; color:var(--muted); font-size:20px; line-height:1; padding:8px; cursor:pointer; }
+.library-item-remove:hover { color:#f3b1a8; }
+@media(max-width:720px) {
+  .header-actions { gap:10px; }
+  .site-header button.header-link, .header-link { font-size:9px; }
+}
