@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { shareMetadata, renderShareMetadata } from "../player/share-metadata.mjs";
-import { parseLink } from "../player/core.mjs";
+import { parseLink, radioPlayback } from "../player/core.mjs";
 import { handle, kindOf } from "../server/route.mjs";
 
 const ORIGIN = "https://woopod.com";
@@ -116,4 +116,11 @@ test("the page is a radio page, with the markers the injector needs", () => {
     assert.ok(PAGE.includes("<!-- WOOPOD_SHARE_META_END -->"));
     assert.ok(PAGE.indexOf("WOOPOD_SHARE_META_START") < PAGE.indexOf("WOOPOD_SHARE_META_END"));
     assert.match(PAGE, /<script type="module" src="\.\.\/player\/player\.mjs/, "the shell loads the player");
+});
+
+test("http streams play through the relay on https pages, directly elsewhere", () => {
+    const httpStream = "http://stream.example.com/live.mp3";
+    assert.equal(radioPlayback(httpStream, "https:"), `/api/v1/radio-stream?u=${encodeURIComponent(httpStream)}`);
+    assert.equal(radioPlayback(httpStream, "http:"), httpStream, "plain-HTTP pages have no mixed-content rule");
+    assert.equal(radioPlayback(AUDIO, "https:"), AUDIO, "HTTPS stations never touch the relay");
 });
