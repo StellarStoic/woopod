@@ -359,6 +359,11 @@ export async function episodeByGuidEndpoint(searchParams, options = {}) {
     const result = await callProvider('/api/1.0/episodes/byguid', { query: guid, limit: null, params },
         { apiKey: env.PI_API_KEY, apiSecret: env.PI_API_SECRET, fetchImpl, now, timeoutMs });
     if (!result.ok) return piJson({ error: pickError(result), provider: 'podcastindex' }, result.status || 502);
+    // HTTP 200 with status:"false" is the provider saying it does not know this guid. Reading that as an
+    // unexpected response sent whoever was debugging a link after the wrong bug.
+    if (String(result.payload?.status) === 'false') {
+        return piJson({ error: { code: 'not_found', message: 'Episode not found.' }, provider: 'podcastindex' }, 404);
+    }
     const episode = result.payload.episode || (Array.isArray(result.payload.episodes) ? result.payload.episodes[0] : null);
     if (!episode) return piJson({ error: { code: 'not_found', message: 'Episode not found.' }, provider: 'podcastindex' }, 404);
     const mapped = mapEpisode(episode);

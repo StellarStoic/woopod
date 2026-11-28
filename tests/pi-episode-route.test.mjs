@@ -126,3 +126,13 @@ test("the provider wants the feed id beside the guid, so this asks for it", asyn
     assert.equal(await feedIdByUrl("http://insecure.example.com/f.xml", { env: ENV, fetchImpl: impl }), null, "publicAddress still applies");
     assert.equal(await feedIdByUrl("https://example.com/feed.xml", { env: {}, fetchImpl: impl }), null, "no credentials, no call");
 });
+
+test("a guid the index does not know is not_found, not an unexpected response", async () => {
+    // the provider's real shape for an unknown guid: 200 with status:"false" and no episode object
+    const impl = async () => new Response(JSON.stringify({ status: "false", query: { id: "9281234" }, episode: {} }),
+        { status: 200, headers: { "content-type": "application/json" } });
+    const response = await handleApi(new Request(`https://woopod.com/api/v1/pi/episode?guid=${GUID}&feedid=454880`),
+        { env: ENV, fetchImpl: impl });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, "not_found");
+});
