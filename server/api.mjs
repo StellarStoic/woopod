@@ -21,6 +21,7 @@
 
 import { matchEpisode, parseFeed, queryUsable, safeFetch, targetRefused } from "./resolver.mjs";
 import { searchEndpoint, categoryEndpoint, guidEndpoint, episodeByGuidEndpoint, feedIdByUrl, PI_TIMEOUT_MS } from "./podcastindex.mjs";
+import { radioStreamEndpoint } from "./radioStream.mjs";
 
 export const API_CACHE_SECONDS = 300;
 const MAX_EPISODES = 300;
@@ -249,8 +250,14 @@ async function episodeByGuid(searchParams, requestedFeed, { env, fetchImpl }) {
  *
  * Cached on the whole address, and — like the share route — only a GET may fill the cache.
  */
-export async function handleApi(request, { fetchImpl, env = {} } = {}) {
+export async function handleApi(request, { fetchImpl, env = {}, resolveHost } = {}) {
     const url = new URL(request.url);
+
+    // The radio relay: an HTTPS doorway for a station that only speaks HTTP. It is its own route with its
+    // own guards (private addresses, redirect hops), so it is answered before anything else is considered.
+    if (/^\/api\/v1\/radio-stream\/?$/.test(url.pathname)) {
+        return radioStreamEndpoint(request, resolveHost ? { fetchImpl, resolveHost } : { fetchImpl });
+    }
 
     // Podcast Index search: a different contract from the page resolvers (it answers an app, not a
     // page), a different cache rule (nothing is retained until the provider's terms are read), and
