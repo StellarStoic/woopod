@@ -209,8 +209,11 @@ export async function radioStreamEndpoint(request, {fetchImpl = (...args) => fet
         const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
         const timer = controller ? setTimeout(() => controller.abort(), RS_TIMEOUT_MS) : null;
         try {
+            // Always a GET upstream, even for a HEAD from the caller: Icecast answers HEAD with 400 and
+            // text/html, so asking it what the stream is needs a real request. The body is released the
+            // moment the headers are in hand, which costs the station one open connection for a moment.
             upstream = await fetchImpl(current.toString(), {
-                method: request.method,
+                method: "GET",
                 redirect: "manual",
                 headers: {
                     // the stream itself, plus what a relayed request should say about itself
@@ -257,10 +260,12 @@ export async function radioStreamEndpoint(request, {fetchImpl = (...args) => fet
         if (value) headers.set(name, value);
     }
 
-    // a HEAD asks what the stream is, not for the stream
+    // a HEAD asks what the stream is, not for the stream: the headers above came from a GET, and the body
+    // is dropped here rather than piped
     if (request.method === "HEAD" || !upstream.body) {
         if (upstream.body) { try { await upstream.body.cancel(); } catch { /* nothing to release */ } }
-        return new Response(null, {status: upstream.status === 206 ? 206 : 200, headers});
+        const status = upstream.status === 206 ? 206 : upstream.ok ? 200 : upstream.status;
+        return new Response(null, {status, headers});
     }
     return new Response(upstream.body, {status: upstream.status === 206 ? 206 : 200, headers});
 }

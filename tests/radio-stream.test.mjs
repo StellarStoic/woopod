@@ -204,12 +204,19 @@ test("a redirect loop ends at the limit instead of running forever", async () =>
 });
 
 test("a HEAD asks what the stream is and takes no bytes", async () => {
-    const fetchImpl = upstreamFor([["mp3.rtvslo.si", () => answer("unused", 200, {"content-type": "audio/aac", "icy-name": "VAL 202"})]]);
+    // the upstream is asked with a GET even here: Icecast answers HEAD with 400 and text/html, so a HEAD
+    // passthrough reported the wrong type for a station that is plainly audio
+    let methodUsed = null;
+    const fetchImpl = upstreamFor([["mp3.rtvslo.si", (url, init) => {
+        methodUsed = init.method;
+        return answer("unused", 200, {"content-type": "audio/aac", "icy-name": "VAL 202"});
+    }]]);
     const response = await radioStreamEndpoint(new Request(`${ROUTE}?u=${encodeURIComponent(STATION)}`, {method: "HEAD"}),
         {fetchImpl, resolveHost: dnsFor({"mp3.rtvslo.si": ["193.95.200.1"]})});
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "audio/aac");
     assert.equal(await response.text(), "");
+    assert.equal(methodUsed, "GET", "the station must be asked with a GET, not a HEAD");
 });
 
 test("the range header is passed on, so a caller can sample the first bytes", async () => {
